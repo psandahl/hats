@@ -16,14 +16,15 @@ cabal-version:       >=1.10
 library
   hs-source-dirs:      src
   exposed-modules:     Network.Nats
-  other-modules:       Network.Nats.ConnectionManager
+  other-modules:       Network.Nats.Connection
+                       Network.Nats.ConnectionManager
   build-depends:       base >= 4.7 && < 5
                      , aeson
                      , async
                      , attoparsec
                      , bytestring
                      , conduit
-                     , conduit-extra
+                     , connection
                      , fast-logger
                      , network
                      , network-uri

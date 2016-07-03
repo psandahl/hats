@@ -1,11 +1,4 @@
--- |
--- Module      : Network.Nats.ConnectionManager
--- Licence     : BSD3
--- Maintainer  : Patrik Sandahl <patrik.sandahl@gmail.com>
--- Stability   : unknown
--- Portability : portable
---
--- Configuration and functionality for setting up and maintaining
+-- | Configuration and functionality for setting up and maintaining
 -- connections towards a NATS messaging server.
 module Network.Nats.ConnectionManager
     ( ConnectionManager (..)
