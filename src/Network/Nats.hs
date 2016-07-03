@@ -1,0 +1,3 @@
+module Network.Nats
+    (
+    ) where
