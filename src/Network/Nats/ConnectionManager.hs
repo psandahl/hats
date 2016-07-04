@@ -1,9 +1,8 @@
 -- | Configuration and functionality for setting up and maintaining
 -- connections towards a NATS messaging server.
 module Network.Nats.ConnectionManager
-    ( ConnectionManager (..)
+    ( ConnectionManager
     , ManagerConfiguration (..)
-    , newConnectionManager
     , startConnectionManager
     , stopConnectionManager
     , defaultManagerConfiguration
@@ -11,14 +10,26 @@ module Network.Nats.ConnectionManager
     , roundRobinSelect
     ) where
 
-import Data.Conduit (Source, Sink)
-import Data.ByteString (ByteString)
-import Network.Socket (SockAddr)
+import Control.Concurrent (forkIO, threadDelay)
+import Control.Concurrent.STM ( TVar
+                              , atomically
+                              , newTVarIO
+                              , readTVarIO
+                              , writeTVar
+                              )
+import Control.Monad (forever)
 import Network.URI (URI)
 import System.Random (randomRIO)
 
+import Network.Nats.Connection
+
 data ConnectionManager = ConnectionManager
-    { configuration :: !ManagerConfiguration
+    { configuration  :: !ManagerConfiguration
+    , upstream       :: !Upstream
+    , downstream     :: !Downstream
+    , uris           :: ![URI]
+    , connection     :: !(TVar (Maybe Connection))
+    , currUri        :: !(TVar Int)
     }
 
 data ManagerConfiguration = ManagerConfiguration
@@ -37,24 +48,26 @@ data ManagerConfiguration = ManagerConfiguration
       -- uris and the current index. The reply is the chosen server and
       -- its index.
 
-    , connectInfo :: SockAddr -> IO ()
-      -- ^ Callback to inform that a connection is made, with the 'SockAddr'
+    , connectInfo :: URI -> IO ()
+      -- ^ Callback to inform that a connection is made, with the 'URI'
       -- for the server.
 
-    , disconnectInfo :: SockAddr -> IO ()
+    , disconnectInfo :: URI -> IO ()
       -- ^ Callback to inform that a disconnect has happened, with
-      -- the 'SockAddr' for the server.
+      -- the 'URI' for the server.
     }
 
-newConnectionManager :: ManagerConfiguration
-                     -> Source IO ByteString
-                     -> Sink ByteString IO ()
-                     -> [URI]
-                     -> IO ConnectionManager
-newConnectionManager = undefined
-
-startConnectionManager :: ConnectionManager -> IO ()
-startConnectionManager = undefined
+startConnectionManager :: ManagerConfiguration
+                       -> Upstream
+                       -> Downstream
+                       -> [URI]
+                       -> IO ConnectionManager
+startConnectionManager config upstream' downstream' uris' = do
+    mgr <- ConnectionManager config upstream' downstream' uris'
+               <$> newTVarIO Nothing
+               <*> newTVarIO (-1)
+    _ <- forkIO $ connectionManager mgr
+    return mgr
 
 stopConnectionManager :: ConnectionManager -> IO ()
 stopConnectionManager = undefined
@@ -81,3 +94,24 @@ roundRobinSelect :: ([URI], Int) -> IO (URI, Int)
 roundRobinSelect (xs, currIdx)
     | currIdx == length xs - 1 = return (head xs, 0)
     | otherwise                = return (xs !! (currIdx + 1), currIdx + 1)
+
+connectionManager :: ConnectionManager -> IO ()
+connectionManager mgr = forever $ do
+    c <- tryConnect mgr (reconnectionAttempts $ configuration mgr)
+    atomically $ writeTVar (connection mgr) (Just c)
+    waitForServerShutdown c
+
+tryConnect :: ConnectionManager -> Int -> IO Connection
+tryConnect _ 0 = error "No more attempts!"
+tryConnect mgr n = do
+    putStrLn $ "Attempt: " ++ show n
+    let selector = serverSelect $ configuration mgr
+    currUri'      <- readTVarIO $ currUri mgr
+    (uri, newUri) <- selector ((uris mgr),  currUri')
+    atomically $ writeTVar (currUri mgr) newUri
+    mConnection <- makeConnection uri (upstream mgr) (downstream mgr)
+    case mConnection of
+        Just c  -> return c
+        Nothing -> do
+            threadDelay 1000000
+            tryConnect mgr (n - 1)

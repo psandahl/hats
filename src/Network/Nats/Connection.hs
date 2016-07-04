@@ -2,6 +2,8 @@
 -- networking stuff and performs NATS handshaking necessary.
 module Network.Nats.Connection
     ( Connection
+    , Upstream
+    , Downstream
     , makeConnection
     , waitForServerShutdown
     ) where
