@@ -17,7 +17,7 @@ import Control.Concurrent.STM ( TVar
                               , readTVarIO
                               , writeTVar
                               )
-import Control.Monad (forever)
+import Control.Monad (forever, void)
 import Network.URI (URI)
 import System.Random (randomRIO)
 
@@ -63,10 +63,16 @@ startConnectionManager :: ManagerConfiguration
                        -> [URI]
                        -> IO ConnectionManager
 startConnectionManager config upstream' downstream' uris' = do
-    mgr <- ConnectionManager config upstream' downstream' uris'
-               <$> newTVarIO Nothing
-               <*> newTVarIO (-1)
-    _ <- forkIO $ connectionManager mgr
+    connection' <- newTVarIO Nothing
+    currUri'    <- newTVarIO (-1)
+    let mgr = ConnectionManager { configuration = config
+                                , upstream      = upstream'
+                                , downstream    = downstream'
+                                , uris          = uris'
+                                , connection    = connection'
+                                , currUri       = currUri'
+                                }
+    void $ forkIO $ connectionManager mgr
     return mgr
 
 stopConnectionManager :: ConnectionManager -> IO ()
