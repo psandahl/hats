@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards   #-}
 -- | Abstraction for a connection towards a NATS server. It owns the
 -- networking stuff and performs NATS handshaking necessary.
 module Network.Nats.Connection
@@ -18,6 +20,7 @@ import Control.Concurrent.STM ( TQueue
                               , writeTQueue
                               )
 import Control.Exception ( SomeException
+                         , fromException
                          , throwIO
                          , handle
                          )
@@ -30,6 +33,7 @@ import Data.Conduit ( ($$)
                     , awaitForever
                     , yield
                     )
+import Data.Conduit.Attoparsec (sinkParser)
 import Data.Maybe (fromJust)
 import Network.Socket (HostName, PortNumber)
 import Network.URI ( URI
@@ -38,6 +42,12 @@ import Network.URI ( URI
                    , uriPort
                    )
 
+import Network.Nats.Types (NatsException (..))
+import Network.Nats.Message.Message (Message (..))
+import Network.Nats.Message.Parser (parseMessage)
+import Network.Nats.Message.Writer (writeMessage)
+
+import qualified Data.ByteString.Lazy as LBS
 import qualified Network.Connection as NC
 
 -- | Upstream data from the NATS server to the client.
@@ -63,7 +73,11 @@ makeConnection uri fromApp toApp =
       socketError :: SomeException -> IO (Maybe Connection)
       socketError e
         | isConnectionRefused e = return Nothing
-        | otherwise             = throwIO e
+        | otherwise             =
+            case fromException e of
+                (Just HandshakeException) -> return Nothing
+                _                         -> throwIO e
+            
 
 makeConnection' :: URI -> Upstream -> Downstream -> IO Connection
 makeConnection' uri fromApp toApp = do
@@ -77,8 +91,11 @@ makeConnection' uri fromApp toApp = do
             , NC.connectionUseSecure = Nothing
             }
 
-    -- Now start the pipeline threads and return the Connection
-    -- record.
+    -- Perform the handshaking of 'Info' and 'Connect' messages between
+    -- the client and the server.
+    handshake uri conn =<< getSingleMessage conn
+
+    -- Now start the pipeline threads and let the fun begin.
     Connection conn <$> (async $ connectionSource conn $$ streamSink toApp)
                     <*> (async $ streamSource fromApp $$ connectionSink conn)
 
@@ -88,6 +105,24 @@ waitForServerShutdown :: Connection -> IO ()
 waitForServerShutdown conn = do
     void $ waitAnyCatchCancel [ fromNet conn, toNet conn]
     NC.connectionClose $ connection conn
+
+-- | Perform the handshake.
+-- TODO: More handshaking, user, password, tls, tokens etc.
+handshake :: URI -> NC.Connection -> Message -> IO ()
+handshake _uri conn Info {..} = do
+    let connect = Connect { clientVerbose     = Just False
+                          , clientPedantic    = Just False
+                          , clientSslRequired = Just False
+                          , clientAuthToken   = Nothing
+                          , clientUser        = Nothing
+                          , clientPass        = Nothing
+                          , clientName        = Just "hats"
+                          , clientLang        = Just "Haskell"
+                          , clientVersion     = Just "0.1.0.0"
+                          }
+    mapM_ (NC.connectionPut conn) $ LBS.toChunks (writeMessage connect)
+
+handshake _ _ _ = throwIO HandshakeException
 
 -- | Source from a 'NC.Connection' to a 'ByteString'.
 connectionSource :: NC.Connection -> Source IO ByteString
@@ -129,3 +164,9 @@ extractPort _         = error "This is no valid port, ehh?"
 isConnectionRefused :: SomeException -> Bool
 isConnectionRefused e =
     show e == "connect: does not exist (Connection refused)"
+
+-- | Get one single message from the 'NC.Connection'. It should be the
+-- initial 'Info' message from the NATS server.
+getSingleMessage :: NC.Connection -> IO Message
+getSingleMessage c = connectionSource c $$ sinkParser parseMessage
+

@@ -28,6 +28,7 @@ library
                      , attoparsec
                      , bytestring
                      , conduit
+                     , conduit-extra
                      , connection
                      , deepseq
                      , fast-logger
