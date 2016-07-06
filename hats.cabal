@@ -16,8 +16,10 @@ cabal-version:       >=1.10
 library
   hs-source-dirs:      src
   exposed-modules:     Network.Nats
+                       Network.Nats.Api
                        Network.Nats.Connection
                        Network.Nats.ConnectionManager
+                       Network.Nats.Subscriber
                        Network.Nats.Types
                        Network.Nats.Message.Message
                        Network.Nats.Message.Parser
