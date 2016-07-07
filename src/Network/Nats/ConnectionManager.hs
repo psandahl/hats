@@ -10,26 +10,29 @@ module Network.Nats.ConnectionManager
     , roundRobinSelect
     ) where
 
-import Control.Concurrent (forkIO, threadDelay)
+import Control.Concurrent (threadDelay)
+import Control.Concurrent.Async (Async, async, cancel, waitCatch)
 import Control.Concurrent.STM ( TVar
                               , atomically
                               , newTVarIO
                               , readTVarIO
                               , writeTVar
                               )
-import Control.Monad (forever, void)
+import Control.Monad (forever, void, when)
+import Data.Maybe (isJust, fromJust)
 import Network.URI (URI)
 import System.Random (randomRIO)
 
 import Network.Nats.Connection
 
 data ConnectionManager = ConnectionManager
-    { configuration  :: !ManagerConfiguration
-    , upstream       :: !Upstream
-    , downstream     :: !Downstream
-    , uris           :: ![URI]
-    , connection     :: !(TVar (Maybe Connection))
-    , currUri        :: !(TVar Int)
+    { configuration :: !ManagerConfiguration
+    , upstream      :: !Upstream
+    , downstream    :: !Downstream
+    , uris          :: ![URI]
+    , connection    :: !(TVar (Maybe Connection))
+    , currUri       :: !(TVar Int)
+    , managerThread :: !(TVar (Maybe (Async ())))
     }
 
 data ManagerConfiguration = ManagerConfiguration
@@ -63,20 +66,36 @@ startConnectionManager :: ManagerConfiguration
                        -> [URI]
                        -> IO ConnectionManager
 startConnectionManager config upstream' downstream' uris' = do
-    connection' <- newTVarIO Nothing
-    currUri'    <- newTVarIO (-1)
+    connection'    <- newTVarIO Nothing
+    currUri'       <- newTVarIO (-1)
+    managerThread' <- newTVarIO Nothing
     let mgr = ConnectionManager { configuration = config
                                 , upstream      = upstream'
                                 , downstream    = downstream'
                                 , uris          = uris'
                                 , connection    = connection'
                                 , currUri       = currUri'
+                                , managerThread = managerThread'
                                 }
-    void $ forkIO $ connectionManager mgr
+    thread <- async $ connectionManager mgr
+    atomically $ writeTVar managerThread' (Just thread)
     return mgr
 
 stopConnectionManager :: ConnectionManager -> IO ()
-stopConnectionManager = undefined
+stopConnectionManager mgr = do
+    -- The order when shutting down things is important. First the
+    -- managerThread must be stopped (so it not tries to create new
+    -- connections). Then the 'Connection' can be stopped.
+    managerThread' <- readTVarIO $ managerThread mgr
+    when (isJust managerThread') $ do
+        let thread = fromJust managerThread'
+        cancel thread
+        void $ waitCatch thread
+
+    connection' <- readTVarIO $ connection mgr
+    when (isJust connection') $ do
+        let connection'' = fromJust connection'
+        clientShutdown connection''
 
 -- | Create a default 'ManagerConfiguration'.
 defaultManagerConfiguration :: ManagerConfiguration
@@ -105,7 +124,7 @@ connectionManager :: ConnectionManager -> IO ()
 connectionManager mgr = forever $ do
     c <- tryConnect mgr (reconnectionAttempts $ configuration mgr)
     atomically $ writeTVar (connection mgr) (Just c)
-    waitForServerShutdown c
+    waitForShutdown c
 
 tryConnect :: ConnectionManager -> Int -> IO Connection
 tryConnect _ 0 = error "No more attempts!"

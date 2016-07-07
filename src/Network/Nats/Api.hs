@@ -9,12 +9,11 @@ module Network.Nats.Api
     , nextMsg
     ) where
 
-import Control.Concurrent.Async (Async, async, waitCatch)
+import Control.Concurrent.Async (Async, async)
 import Control.Concurrent.STM ( atomically
                               , newTQueueIO
                               , readTQueue
                               )
-import Control.Monad (void)
 
 import Network.Nats.Conduit (Downstream, Upstream, upstreamMessage)
 import Network.Nats.ConnectionManager ( ConnectionManager
@@ -66,9 +65,7 @@ initNats config uris = do
                   }
 
 termNats :: Nats -> IO ()
-termNats nats = do
-   stopConnectionManager $ connectionManager nats
-   void $ waitCatch $ dispatcherThread nats
+termNats nats = stopConnectionManager $ connectionManager nats
 
 publish :: Nats -> Topic -> Maybe Topic -> Payload -> IO ()
 publish nats topic replyTo payload =

@@ -7,7 +7,8 @@ module Network.Nats.Connection
     , Upstream
     , Downstream
     , makeConnection
-    , waitForServerShutdown
+    , clientShutdown
+    , waitForShutdown
     ) where
 
 import Control.Concurrent.Async ( Async
@@ -87,11 +88,18 @@ makeConnection' uri fromApp toApp = do
     Connection conn <$> (async $ connectionSource conn $$ streamSink toApp)
                     <*> (async $ streamSource fromApp $$ connectionSink conn)
 
--- | Blocking wait for the server connection to shutdown (perhaps it
+-- | Shut down a 'Connection' by cancel the threads.
+clientShutdown :: Connection -> IO ()
+clientShutdown conn = do
+    -- The close of the connection will make the threads terminate.
+    NC.connectionClose $ connection conn
+    void $ waitAnyCatchCancel [ fromNet conn, toNet conn ]
+
+-- | Blocking wait for the connection to shutdown (perhaps it
 -- never does).
-waitForServerShutdown :: Connection -> IO ()
-waitForServerShutdown conn = do
-    void $ waitAnyCatchCancel [ fromNet conn, toNet conn]
+waitForShutdown :: Connection -> IO ()
+waitForShutdown conn = do
+    void $ waitAnyCatchCancel [ fromNet conn, toNet conn ]
     NC.connectionClose $ connection conn
 
 -- | Perform the handshake.
@@ -111,7 +119,6 @@ handshake _uri conn Info {..} = do
     mapM_ (NC.connectionPut conn) $ LBS.toChunks (writeMessage connect)
 
 handshake _ _ _ = throwIO HandshakeException
-
 
 -- | Select the host part from the 'URI'.
 hostFromUri :: URI -> HostName
