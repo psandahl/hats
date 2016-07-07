@@ -14,25 +14,13 @@ import Control.Concurrent.Async ( Async
                                 , async
                                 , waitAnyCatchCancel
                                 )
-import Control.Concurrent.STM ( TQueue
-                              , atomically
-                              , readTQueue
-                              , writeTQueue
-                              )
 import Control.Exception ( SomeException
                          , fromException
                          , throwIO
                          , handle
                          )
-import Control.Monad (void, forever)
-import Control.Monad.IO.Class (liftIO)
-import Data.ByteString (ByteString)
-import Data.Conduit ( ($$)
-                    , Source
-                    , Sink
-                    , awaitForever
-                    , yield
-                    )
+import Control.Monad (void)
+import Data.Conduit (($$))
 import Data.Conduit.Attoparsec (sinkParser)
 import Data.Maybe (fromJust)
 import Network.Socket (HostName, PortNumber)
@@ -43,18 +31,19 @@ import Network.URI ( URI
                    )
 
 import Network.Nats.Types (NatsException (..))
+import Network.Nats.Conduit ( Upstream
+                            , Downstream
+                            , connectionSource
+                            , connectionSink
+                            , streamSource
+                            , streamSink
+                            )
 import Network.Nats.Message.Message (Message (..))
 import Network.Nats.Message.Parser (parseMessage)
 import Network.Nats.Message.Writer (writeMessage)
 
 import qualified Data.ByteString.Lazy as LBS
 import qualified Network.Connection as NC
-
--- | Upstream data from the NATS server to the client.
-type Upstream = TQueue ByteString
-
--- | Downstream data from the client to the NATS server.
-type Downstream = TQueue ByteString
 
 -- | Record representing an active connection towards the NATS server.
 data Connection = Connection
@@ -78,7 +67,6 @@ makeConnection uri fromApp toApp =
                 (Just HandshakeException) -> return Nothing
                 _                         -> throwIO e
             
-
 makeConnection' :: URI -> Upstream -> Downstream -> IO Connection
 makeConnection' uri fromApp toApp = do
     -- Make the connection.
@@ -124,25 +112,6 @@ handshake _uri conn Info {..} = do
 
 handshake _ _ _ = throwIO HandshakeException
 
--- | Source from a 'NC.Connection' to a 'ByteString'.
-connectionSource :: NC.Connection -> Source IO ByteString
-connectionSource c =
-    forever $ yield =<< (liftIO $ NC.connectionGetChunk c)
-
--- | Sink a 'ByteString' to a 'NC.Connection'.
-connectionSink :: NC.Connection -> Sink ByteString IO ()
-connectionSink c = awaitForever $ 
-    \chunk -> liftIO $ NC.connectionPut c chunk
-
--- | Source from an 'Upstream' to a 'ByteString'.
-streamSource :: Upstream -> Source IO ByteString
-streamSource stream =
-    forever $ yield =<< (liftIO $ atomically $ readTQueue stream)
-
--- | Sink a 'ByteString' to a 'Downstream'.
-streamSink :: Downstream -> Sink ByteString IO ()
-streamSink stream = awaitForever $
-    \chunk -> liftIO $ atomically $ writeTQueue stream chunk
 
 -- | Select the host part from the 'URI'.
 hostFromUri :: URI -> HostName
@@ -169,4 +138,3 @@ isConnectionRefused e =
 -- initial 'Info' message from the NATS server.
 getSingleMessage :: NC.Connection -> IO Message
 getSingleMessage c = connectionSource c $$ sinkParser parseMessage
-

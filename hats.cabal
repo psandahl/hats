@@ -19,11 +19,13 @@ library
                        Network.Nats.Api
                        Network.Nats.Connection
                        Network.Nats.ConnectionManager
+                       Network.Nats.Dispatcher
                        Network.Nats.Subscriber
                        Network.Nats.Types
                        Network.Nats.Message.Message
                        Network.Nats.Message.Parser
                        Network.Nats.Message.Writer
+  other-modules:       Network.Nats.Conduit
   build-depends:       base >= 4.7 && < 5
                      , aeson
                      , async
