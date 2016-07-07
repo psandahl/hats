@@ -22,6 +22,7 @@ type QueueGroup = BS.ByteString
 
 data NatsException
     = HandshakeException
+    | URIError !String
     deriving (Typeable, Show)
 
 instance Exception NatsException
