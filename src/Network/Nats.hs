@@ -5,6 +5,7 @@ module Network.Nats
     , Payload
     , Topic
     , QueueGroup
+    , SubQueue
     , ManagerConfiguration (..)
     , NatsException (URIError)
     , withNats
@@ -32,7 +33,7 @@ import Network.Nats.Api ( Nats
 import Network.Nats.ConnectionManager ( ManagerConfiguration (..)
                                       , defaultManagerConfiguration
                                       )
-import Network.Nats.Subscriber (Msg (..))
+import Network.Nats.Subscriber (Msg (..), SubQueue)
 import Network.Nats.Types ( Sid
                           , Payload
                           , Topic
