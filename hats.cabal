@@ -50,6 +50,7 @@ test-suite hats-test
   hs-source-dirs:      test
   main-is:             Spec.hs
   other-modules:       MessageProps
+                       NatsTests
   build-depends:       base
                      , attoparsec
                      , bytestring
