@@ -6,6 +6,7 @@ module Network.Nats.Subscriber
     , newSubscriberMap
     , addSubscription
     , addAsyncSubscription
+    , lookupSubscriber
     ) where
 
 import Network.Nats.Types ( Payload
@@ -20,6 +21,7 @@ import Control.Concurrent.STM ( TQueue
                               , newTVarIO
                               , newTQueueIO
                               , modifyTVar
+                              , readTVar
                               )
 import Data.HashMap.Strict (HashMap)
 
@@ -51,3 +53,8 @@ addAsyncSubscription :: SubscriberMap -> Sid -> Message
 addAsyncSubscription subscriberMap sid msg action = do
     let sub = AsyncSubscriber action msg
     atomically $ modifyTVar subscriberMap $ HM.insert sid sub
+
+lookupSubscriber :: SubscriberMap -> Sid -> IO (Maybe Subscriber)
+lookupSubscriber subscriberMap sid =
+    HM.lookup sid <$> (atomically $ readTVar subscriberMap)
+{-# INLINE lookupSubscriber #-}
