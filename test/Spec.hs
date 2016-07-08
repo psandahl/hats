@@ -6,7 +6,11 @@ import Test.Framework (Test, defaultMain, testGroup)
 import Test.Framework.Providers.HUnit (testCase)
 import Test.Framework.Providers.QuickCheck2 (testProperty)
 
-import NatsTests (subSingleMessage, subSingleMessageAsync)
+import NatsTests ( recSingleMessage
+                 , recSingleMessageAsync
+                 , recMessagesWithTmo
+                 , unsubscribeToTopic
+                 )
 import MessageProps (encodeDecodeMessage)
 
 main :: IO ()
@@ -19,9 +23,13 @@ testSuite =
                        encodeDecodeMessage
         ]
     , testGroup "Plain (non-JSON) NATS API tests"
-        [ testCase "Subscription of a single message"
-                   subSingleMessage
-        , testCase "Async subscription of a single message"
-                    subSingleMessageAsync
+        [ testCase "Reception of a single message"
+                   recSingleMessage
+        , testCase "Async reception of a single message"
+                   recSingleMessageAsync
+        , testCase "Reception of two messages, with timeout"
+                   recMessagesWithTmo
+        , testCase "Unsubscribe to a topic before publishing"
+                   unsubscribeToTopic
         ]
     ]

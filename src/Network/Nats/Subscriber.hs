@@ -34,7 +34,7 @@ data Subscriber
     | AsyncSubscriber !(Msg -> IO ()) !Message
 
 data Msg = Msg !Topic !(Maybe Topic) {-# UNPACK #-} !Sid !Payload
-    deriving Show
+    deriving (Eq, Show)
 
 newtype SubQueue = SubQueue (TQueue Msg)
 

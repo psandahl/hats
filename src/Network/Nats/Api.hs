@@ -88,14 +88,13 @@ subscribeAsync nats topic queueGroup action = do
     upstreamMessage (upstream nats) msg
     return sid
 
-unsubscribe :: Nats -> Sid -> IO ()
+unsubscribe :: Nats -> Sid -> Maybe Int -> IO ()
 unsubscribe = undefined
 
 nextMsg :: SubQueue -> IO Msg
-{-# INLINE nextMsg #-}
 nextMsg (SubQueue queue) = atomically $ readTQueue queue
+{-# INLINE nextMsg #-}
 
 newSid :: IO Sid
-{-# INLINE newSid #-}
 newSid = randomRIO (0, maxBound)
-
+{-# INLINE newSid #-}
