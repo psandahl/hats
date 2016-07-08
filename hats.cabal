@@ -16,16 +16,17 @@ cabal-version:       >=1.10
 library
   hs-source-dirs:      src
   exposed-modules:     Network.Nats
-                       Network.Nats.Api
-                       Network.Nats.Connection
-                       Network.Nats.ConnectionManager
-                       Network.Nats.Dispatcher
-                       Network.Nats.Subscriber
                        Network.Nats.Types
                        Network.Nats.Message.Message
                        Network.Nats.Message.Parser
                        Network.Nats.Message.Writer
-  other-modules:       Network.Nats.Conduit
+
+  other-modules:       Network.Nats.Api
+                       Network.Nats.Connection
+                       Network.Nats.ConnectionManager
+                       Network.Nats.Dispatcher
+                       Network.Nats.Subscriber
+                       Network.Nats.Conduit
   build-depends:       base >= 4.7 && < 5
                      , aeson
                      , async
@@ -35,7 +36,6 @@ library
                      , conduit-extra
                      , connection
                      , deepseq
-                     , fast-logger
                      , network
                      , network-uri
                      , random
@@ -49,8 +49,16 @@ test-suite hats-test
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
   main-is:             Spec.hs
+  other-modules:       MessageProps
   build-depends:       base
+                     , attoparsec
+                     , bytestring
                      , hats
+                     , HUnit
+                     , test-framework
+                     , test-framework-hunit
+                     , test-framework-quickcheck2
+                     , QuickCheck
   ghc-options:         -Wall
   default-language:    Haskell2010
 
