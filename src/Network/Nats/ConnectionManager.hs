@@ -132,7 +132,7 @@ tryConnect mgr n = do
     putStrLn $ "Attempt: " ++ show n
     let selector = serverSelect $ configuration mgr
     currUri'      <- readTVarIO $ currUri mgr
-    (uri, newUri) <- selector ((uris mgr),  currUri')
+    (uri, newUri) <- selector (uris mgr,  currUri')
     atomically $ writeTVar (currUri mgr) newUri
     mConnection <- makeConnection uri (upstream mgr) (downstream mgr)
     case mConnection of

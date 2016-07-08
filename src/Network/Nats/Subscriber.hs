@@ -33,7 +33,7 @@ data Subscriber
     = Subscriber !(TQueue Msg) !Message
     | AsyncSubscriber !(Msg -> IO ()) !Message
 
-data Msg = Msg !Topic !(Maybe Topic) {-#UNPACK #-} !Sid !Payload
+data Msg = Msg !Topic !(Maybe Topic) {-# UNPACK #-} !Sid !Payload
     deriving Show
 
 newtype SubQueue = SubQueue (TQueue Msg)
@@ -47,14 +47,16 @@ addSubscription subscriberMap sid msg = do
     let sub = Subscriber queue msg
     atomically $ modifyTVar subscriberMap $ HM.insert sid sub
     return $ SubQueue queue
+{-# INLINE addSubscription #-}
 
 addAsyncSubscription :: SubscriberMap -> Sid -> Message 
                      -> (Msg -> IO ()) -> IO ()
 addAsyncSubscription subscriberMap sid msg action = do
     let sub = AsyncSubscriber action msg
     atomically $ modifyTVar subscriberMap $ HM.insert sid sub
+{-# INLINE addAsyncSubscription #-}
 
 lookupSubscriber :: SubscriberMap -> Sid -> IO (Maybe Subscriber)
 lookupSubscriber subscriberMap sid =
-    HM.lookup sid <$> (atomically $ readTVar subscriberMap)
+    HM.lookup sid <$> atomically (readTVar subscriberMap)
 {-# INLINE lookupSubscriber #-}

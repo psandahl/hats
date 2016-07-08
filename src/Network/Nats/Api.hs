@@ -57,12 +57,12 @@ initNats config uris = do
     dispatcherThread' <- async $ dispatcher downstream' upstream'
                                             subscriberMap'
 
-    return $ Nats { subscriberMap     = subscriberMap'
-                  , connectionManager = manager
-                  , downstream        = downstream'
-                  , upstream          = upstream'
-                  , dispatcherThread  = dispatcherThread'
-                  }
+    return Nats { subscriberMap     = subscriberMap'
+                , connectionManager = manager
+                , downstream        = downstream'
+                , upstream          = upstream'
+                , dispatcherThread  = dispatcherThread'
+                }
 
 termNats :: Nats -> IO ()
 termNats nats = stopConnectionManager $ connectionManager nats

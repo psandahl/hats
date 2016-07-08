@@ -90,7 +90,7 @@ data Message =
     -- for responses.
     -- #bytes: Implicit by the length of the payload.
     -- payload: The message payload data.
-  | Msg !Topic !Sid !(Maybe Topic) !Payload
+  | Msg !Topic {-# UNPACK #-} !Sid !(Maybe Topic) !Payload
 
     -- | The Pub message publishes the message payload to the given
     -- subject name. If a reply subject is supplied, it will be
@@ -109,12 +109,12 @@ data Message =
     -- (Optional) queue group: If specified, the subscriper will join 
     -- this queue group.
     -- sid: A unique alphanumeric SubscriptionId.
-  | Sub !Topic !(Maybe QueueGroup) !Sid
+  | Sub !Topic !(Maybe QueueGroup) {-# UNPACK #-} !Sid
 
     -- | The Unsub message unsubscribes the connection from the specified
     -- subject, or auto-unsubscribes after the specified number of 
     -- messages has been received.
-  | Unsub !Sid !(Maybe Int)
+  | Unsub {-# UNPACK #-} !Sid !(Maybe Int)
 
     -- | The Ping and Pong messages are the keep-alive mechanism between
     -- the client and the server. The server will continously send

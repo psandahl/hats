@@ -47,7 +47,7 @@ messageSink upstream subscriberMap =
         \eMsg -> case eMsg of
             Right (_, msg) -> liftIO $ dispatchMessage upstream
                                                        subscriberMap msg
-            Left err       -> liftIO $ putStrLn (show err)
+            Left err       -> liftIO $ print err
 {-# INLINE messageSink #-}
 
 -- | Dispatch on 'M.Message. Handles 'M.Msg' and 'M.Ping'.

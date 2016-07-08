@@ -34,7 +34,7 @@ type Upstream = TQueue ByteString
 -- | Source from a 'NC.Connection' to a 'ByteString'.
 connectionSource :: NC.Connection -> Source IO ByteString
 connectionSource c =
-    forever $ yield =<< (liftIO $ NC.connectionGetChunk c)
+    forever $ yield =<< liftIO (NC.connectionGetChunk c)
 
 -- | Sink a 'ByteString' to a 'NC.Connection'.
 connectionSink :: NC.Connection -> Sink ByteString IO ()
@@ -44,7 +44,7 @@ connectionSink c = awaitForever $
 -- | Source from an 'Upstream' to a 'ByteString'.
 streamSource :: Upstream -> Source IO ByteString
 streamSource stream =
-    forever $ yield =<< (liftIO $ atomically $ readTQueue stream)
+    forever $ yield =<< liftIO (atomically $ readTQueue stream)
 
 -- | Sink a 'ByteString' to a 'Downstream'.
 streamSink :: Downstream -> Sink ByteString IO ()

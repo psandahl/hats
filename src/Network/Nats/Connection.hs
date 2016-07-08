@@ -72,7 +72,7 @@ makeConnection' :: URI -> Upstream -> Downstream -> IO Connection
 makeConnection' uri fromApp toApp = do
     -- Make the connection.
     ctx  <- NC.initConnectionContext
-    conn <- NC.connectTo ctx $
+    conn <- NC.connectTo ctx
         NC.ConnectionParams
             { NC.connectionHostname  = hostFromUri uri
             , NC.connectionPort      = portFromUri uri
@@ -85,8 +85,8 @@ makeConnection' uri fromApp toApp = do
     handshake uri conn =<< getSingleMessage conn
 
     -- Now start the pipeline threads and let the fun begin.
-    Connection conn <$> (async $ connectionSource conn $$ streamSink toApp)
-                    <*> (async $ streamSource fromApp $$ connectionSink conn)
+    Connection conn <$> async (connectionSource conn $$ streamSink toApp)
+                    <*> async (streamSource fromApp $$ connectionSink conn)
 
 -- | Shut down a 'Connection' by cancel the threads.
 clientShutdown :: Connection -> IO ()

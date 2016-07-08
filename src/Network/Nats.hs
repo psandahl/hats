@@ -18,7 +18,7 @@ module Network.Nats
 
 import Control.Exception (bracket, throwIO)
 import Data.Either (isLeft)
-import Data.Maybe (catMaybes)
+import Data.Maybe (mapMaybe)
 import Control.Monad (when)
 import Network.URI (URI (..), parseAbsoluteURI)
 
@@ -59,7 +59,7 @@ convertURIs ss =
     in if eqLen then Right uris
                 else Left "Malformed URI(s)"
     where
-      toURIs = filter expectedScheme . catMaybes . map parseAbsoluteURI
+      toURIs = filter expectedScheme . mapMaybe parseAbsoluteURI
 
 expectedScheme :: URI -> Bool
 expectedScheme uri = uriScheme uri == "nats:" || uriScheme uri == "tls:"
