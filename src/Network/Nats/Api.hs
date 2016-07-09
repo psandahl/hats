@@ -31,8 +31,9 @@ import Network.Nats.Subscriber ( SubscriberMap
                                , Msg
                                , SubQueue (..)
                                , newSubscriberMap
-                               , addSubscription
-                               , addAsyncSubscription
+                               , addSubscriber
+                               , addAsyncSubscriber
+                               , removeSubscriber
                                )
 import Network.Nats.Message.Message (Message (..))
 
@@ -70,12 +71,13 @@ termNats nats = stopConnectionManager $ connectionManager nats
 publish :: Nats -> Topic -> Maybe Topic -> Payload -> IO ()
 publish nats topic replyTo payload =
     upstreamMessage (upstream nats) $ Pub topic replyTo payload
+{-# INLINE publish #-}
 
 subscribe :: Nats -> Topic -> Maybe QueueGroup -> IO (Sid, SubQueue)
 subscribe nats topic queueGroup = do
     sid <- newSid
     let msg = Sub topic queueGroup sid
-    subQueue <- addSubscription (subscriberMap nats) sid msg
+    subQueue <- addSubscriber (subscriberMap nats) sid msg
     upstreamMessage (upstream nats) msg
     return (sid, subQueue)
 
@@ -84,12 +86,15 @@ subscribeAsync :: Nats -> Topic -> Maybe QueueGroup
 subscribeAsync nats topic queueGroup action = do
     sid <- newSid
     let msg = Sub topic queueGroup sid
-    addAsyncSubscription (subscriberMap nats) sid msg action 
+    addAsyncSubscriber (subscriberMap nats) sid msg action 
     upstreamMessage (upstream nats) msg
     return sid
 
 unsubscribe :: Nats -> Sid -> Maybe Int -> IO ()
-unsubscribe = undefined
+unsubscribe nats sid limit = do
+    let msg = Unsub sid limit
+    removeSubscriber (subscriberMap nats) sid
+    upstreamMessage (upstream nats) msg
 
 nextMsg :: SubQueue -> IO Msg
 nextMsg (SubQueue queue) = atomically $ readTQueue queue

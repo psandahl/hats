@@ -4,8 +4,9 @@ module Network.Nats.Subscriber
     , Msg (..)
     , SubQueue (..)
     , newSubscriberMap
-    , addSubscription
-    , addAsyncSubscription
+    , addSubscriber
+    , addAsyncSubscriber
+    , removeSubscriber
     , lookupSubscriber
     ) where
 
@@ -41,20 +42,25 @@ newtype SubQueue = SubQueue (TQueue Msg)
 newSubscriberMap :: IO SubscriberMap
 newSubscriberMap = newTVarIO HM.empty
 
-addSubscription :: SubscriberMap -> Sid -> Message -> IO SubQueue
-addSubscription subscriberMap sid msg = do
+addSubscriber :: SubscriberMap -> Sid -> Message -> IO SubQueue
+addSubscriber subscriberMap sid msg = do
     queue <- newTQueueIO
     let sub = Subscriber queue msg
     atomically $ modifyTVar subscriberMap $ HM.insert sid sub
     return $ SubQueue queue
-{-# INLINE addSubscription #-}
+{-# INLINE addSubscriber #-}
 
-addAsyncSubscription :: SubscriberMap -> Sid -> Message 
+addAsyncSubscriber :: SubscriberMap -> Sid -> Message 
                      -> (Msg -> IO ()) -> IO ()
-addAsyncSubscription subscriberMap sid msg action = do
+addAsyncSubscriber subscriberMap sid msg action = do
     let sub = AsyncSubscriber action msg
     atomically $ modifyTVar subscriberMap $ HM.insert sid sub
-{-# INLINE addAsyncSubscription #-}
+{-# INLINE addAsyncSubscriber #-}
+
+removeSubscriber :: SubscriberMap -> Sid -> IO ()
+removeSubscriber subscriberMap sid =
+    atomically $ modifyTVar subscriberMap $ HM.delete sid
+{-# INLINE removeSubscriber #-}
 
 lookupSubscriber :: SubscriberMap -> Sid -> IO (Maybe Subscriber)
 lookupSubscriber subscriberMap sid =
