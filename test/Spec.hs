@@ -9,6 +9,7 @@ import Test.Framework.Providers.QuickCheck2 (testProperty)
 import NatsTests ( recSingleMessage
                  , recSingleMessageAsync
                  , recMessagesWithTmo
+                 , requestMessage
                  , unsubscribeToTopic
                  )
 import MessageProps (encodeDecodeMessage)
@@ -29,6 +30,8 @@ testSuite =
                    recSingleMessageAsync
         , testCase "Reception of two messages, with timeout"
                    recMessagesWithTmo
+        , testCase "Reception of a message using request"
+                   requestMessage
         , testCase "Unsubscribe to a topic before publishing"
                    unsubscribeToTopic
         ]

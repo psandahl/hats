@@ -12,6 +12,7 @@ module Network.Nats
     , publish
     , subscribe
     , subscribeAsync
+    , request
     , unsubscribe
     , nextMsg
     , defaultManagerSettings
@@ -27,6 +28,7 @@ import Network.Nats.Api ( Nats
                         , publish
                         , subscribe
                         , subscribeAsync
+                        , request
                         , unsubscribe
                         , nextMsg
                         , initNats
