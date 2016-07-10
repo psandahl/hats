@@ -26,9 +26,8 @@ import Network.Nats.Subscriber ( Msg (..)
                                , SubscriberMap
                                , lookupSubscriber
                                )
+import Network.Nats.Message.Message (Message (..))
 import Network.Nats.Message.Parser (parseMessage)
-
-import qualified Network.Nats.Message.Message as M
 
 -- | The dispatcher pipeline from the 'Downstream', through the message
 -- parser and to the core dispatcher.
@@ -41,7 +40,7 @@ dispatcher downstream upstream subscriberMap =
 -- | The message 'Sink'. Forever receive messages, if there are
 -- parser error print those, otherwise just dispatch the message.
 messageSink :: Upstream -> SubscriberMap 
-            -> Sink (Either ParseError (PositionRange, M.Message)) IO ()
+            -> Sink (Either ParseError (PositionRange, Message)) IO ()
 messageSink upstream subscriberMap =
     awaitForever $
         \eMsg -> case eMsg of
@@ -50,21 +49,21 @@ messageSink upstream subscriberMap =
             Left err       -> liftIO $ print err
 {-# INLINE messageSink #-}
 
--- | Dispatch on 'M.Message. Handles 'M.Msg' and 'M.Ping'.
-dispatchMessage :: Upstream -> SubscriberMap -> M.Message -> IO ()
+-- | Dispatch on 'M.Message. Handles 'MSG' and 'PING'.
+dispatchMessage :: Upstream -> SubscriberMap -> Message -> IO ()
 
--- Receive one 'M.Msg'. Lookup its 'Subscriber' and feed it with the 
+-- Receive one 'MSG'. Lookup its 'Subscriber' and feed it with the 
 -- message. If no 'Subscriber' is found, the message is silently
 -- discarded.
-dispatchMessage _ subscriberMap (M.Msg topic sid replyTo payload) = do
+dispatchMessage _ subscriberMap (MSG topic sid replyTo payload) = do
     let msg = Msg topic replyTo sid payload
     maybe (return ()) (feedSubscriber msg) =<< 
         lookupSubscriber subscriberMap sid
 
--- Handle 'M.Ping' messages. Just reply with 'M.Pong'.
-dispatchMessage upstream _ M.Ping = upstreamMessage upstream M.Pong
+-- Handle 'PING' messages. Just reply with 'PONG'.
+dispatchMessage upstream _ PING = upstreamMessage upstream PONG
 
--- Other are messages this dispatcher doesn't care about. The 'M.Info'
+-- Other are messages this dispatcher doesn't care about. The 'INFO'
 -- message is handled by 'Connection' at connection handshake.
 dispatchMessage _ _ _ = return ()
 {-# INLINE dispatchMessage #-}

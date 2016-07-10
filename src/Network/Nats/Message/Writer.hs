@@ -45,8 +45,8 @@ writeMessage = toLazyByteString . writeMessage'
 -- | Translate a Message value to a Builder.
 writeMessage' :: Message -> Builder
 
--- The first of the handshake messages; Info.
-writeMessage' Info {..} =
+-- The first of the handshake messages; INFO.
+writeMessage' INFO {..} =
     let fields = foldl' writeField [] 
                    [ ("\"server_id\"", Field <$> serverId)
                    , ("\"version\"", Field <$> serverVersion)
@@ -62,8 +62,8 @@ writeMessage' Info {..} =
         fields' = intersperse (charUtf8 ',') $ reverse fields
     in mconcat $ byteString "INFO {":(fields' ++ [charUtf8 '}'])
 
--- The second of the handshake messages; Connect.
-writeMessage' Connect {..} =
+-- The second of the handshake messages; CONNECT.
+writeMessage' CONNECT {..} =
     let fields = foldl' writeField []
                    [ ("\"verbose\"", Field <$> clientVerbose)
                    , ("\"pedantic\"", Field <$> clientPedantic)
@@ -78,66 +78,66 @@ writeMessage' Connect {..} =
         fields' = intersperse (charUtf8 ',') $ reverse fields
     in mconcat $ byteString "CONNECT {":(fields' ++ [byteString "}\r\n"])
 
--- Msg message without a reply subject.
-writeMessage' (Msg subject sid Nothing payload) =
+-- MSG message without a reply subject.
+writeMessage' (MSG subject sid Nothing payload) =
     byteString "MSG " <> byteString subject <> charUtf8 ' '
                       <> writeSid sid <> charUtf8 ' '
                       <> int64Dec (LBS.length payload) <> byteString "\r\n"
                       <> lazyByteString payload <> byteString "\r\n"
 
--- Msg message with a reply subject.
-writeMessage' (Msg subject sid (Just reply) payload) =
+-- MSG message with a reply subject.
+writeMessage' (MSG subject sid (Just reply) payload) =
     byteString "MSG " <> byteString subject <> charUtf8 ' '
                       <> writeSid sid <> charUtf8 ' '
                       <> byteString reply <> charUtf8 ' '
                       <> int64Dec (LBS.length payload) <> byteString "\r\n"
                       <> lazyByteString payload <> byteString "\r\n"
 
--- Pub message without a reply subject.
-writeMessage' (Pub subject Nothing payload) =
+-- PUB message without a reply subject.
+writeMessage' (PUB subject Nothing payload) =
     byteString "PUB " <> byteString subject <> charUtf8 ' '
                       <> int64Dec (LBS.length payload) <> byteString "\r\n"
                       <> lazyByteString payload <> byteString "\r\n"
 
--- Pub message with a reply subject.
-writeMessage' (Pub subject (Just reply) payload) =
+-- PUB message with a reply subject.
+writeMessage' (PUB subject (Just reply) payload) =
     byteString "PUB " <> byteString subject <> charUtf8 ' '
                       <> byteString reply <> charUtf8 ' '
                       <> int64Dec (LBS.length payload) <> byteString "\r\n"
                       <> lazyByteString payload <> byteString "\r\n"
 
--- Sub message without a queue group.
-writeMessage' (Sub subject Nothing sid) =
+-- SUB message without a queue group.
+writeMessage' (SUB subject Nothing sid) =
     byteString "SUB " <> byteString subject <> charUtf8 ' ' 
                       <> writeSid sid <> byteString "\r\n"
 
--- Sub message with a queue group.
-writeMessage' (Sub subject (Just queue) sid) =
+-- SUB message with a queue group.
+writeMessage' (SUB subject (Just queue) sid) =
     byteString "SUB " <> byteString subject <> charUtf8 ' '
                       <> byteString queue <> charUtf8 ' '
                       <> writeSid sid <> byteString "\r\n"
 
--- Unsub message without auto-unsubscribe limit.
-writeMessage' (Unsub sid Nothing) =
+-- UNSUB message without auto-unsubscribe limit.
+writeMessage' (UNSUB sid Nothing) =
     byteString "UNSUB " <> writeSid sid <> byteString "\r\n"
 
--- Unsub message with auto-unsubscribe limit.
-writeMessage' (Unsub sid (Just maxMsgs)) =
+-- UNSUB message with auto-unsubscribe limit.
+writeMessage' (UNSUB sid (Just maxMsgs)) =
     byteString "UNSUB " <> writeSid sid <> charUtf8 ' '
                         <> intDec maxMsgs <> byteString "\r\n"
 
--- Ping message.
-writeMessage' Ping = byteString "PING" <> byteString "\r\n"
+-- PING message.
+writeMessage' PING = byteString "PING" <> byteString "\r\n"
 
--- Pong message.
-writeMessage' Pong = byteString "PONG" <> byteString "\r\n"
+-- PONG message.
+writeMessage' PONG = byteString "PONG" <> byteString "\r\n"
 
 -- Server acknowledge of a well-formed message.
-writeMessage' Ok = byteString "+OK\r\n"
+writeMessage' OK = byteString "+OK\r\n"
 
 -- | Server indication of a protocol, authorization, or other
 -- runtime connection error.
-writeMessage' (Err pe) = byteString "-ERR " <> writePE pe <> "\r\n"
+writeMessage' (ERR pe) = byteString "-ERR " <> writePE pe <> "\r\n"
 
 -- | The translate a Field to a Builder and prepend it to the list of
 -- Builders.

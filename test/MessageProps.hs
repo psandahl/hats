@@ -36,7 +36,7 @@ instance Arbitrary Message where
 -- | Arbitrary generation of Info messages.
 arbitraryInfo :: Gen Message
 arbitraryInfo =
-    Info <$> perhaps valueString
+    INFO <$> perhaps valueString
          <*> perhaps valueString
          <*> perhaps valueString
          <*> perhaps valueString
@@ -50,7 +50,7 @@ arbitraryInfo =
 -- | Arbitrary generation of Connect messages.
 arbitraryConnect :: Gen Message
 arbitraryConnect =
-    Connect <$> arbitrary
+    CONNECT <$> arbitrary
             <*> arbitrary
             <*> arbitrary
             <*> perhaps valueString
@@ -62,39 +62,39 @@ arbitraryConnect =
 
 -- | Arbitrary generation of Msg messages.
 arbitraryMsg :: Gen Message
-arbitraryMsg = Msg <$> alnumString
+arbitraryMsg = MSG <$> alnumString
                    <*> sid
                    <*> perhaps alnumString
                    <*> payloadString
 
 -- | Arbitrary generation of Pub messages.
 arbitraryPub :: Gen Message
-arbitraryPub = Pub <$> alnumString
+arbitraryPub = PUB <$> alnumString
                    <*> perhaps alnumString
                    <*> payloadString
 
 -- | Arbitrary generation of Sub messages.
 arbitrarySub :: Gen Message
-arbitrarySub = Sub <$> alnumString 
+arbitrarySub = SUB <$> alnumString 
                    <*> perhaps alnumString 
                    <*> sid
 
 -- | Arbitrary generation of Sub messages.
 arbitraryUnsub :: Gen Message
-arbitraryUnsub = Unsub <$> sid
+arbitraryUnsub = UNSUB <$> sid
                        <*> perhaps posInt
 
 -- | Arbitrary generation of Ping/Pong messages.
 arbitraryPingPong :: Gen Message
-arbitraryPingPong = oneof [ pure Ping, pure Pong ]
+arbitraryPingPong = oneof [ pure PING, pure PONG ]
 
 -- | Arbitrary generation of Ok messages.
 arbitraryOk :: Gen Message
-arbitraryOk = pure Ok
+arbitraryOk = pure OK
 
 -- | Arbitrary generation of Err messages.
 arbitraryErr :: Gen Message
-arbitraryErr = Err <$> arbitrary
+arbitraryErr = ERR <$> arbitrary
 
 -- | Test by write a Message to ByteString, and parse it back again.
 encodeDecodeMessage :: Message -> Bool

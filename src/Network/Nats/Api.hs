@@ -70,13 +70,13 @@ termNats nats = stopConnectionManager $ connectionManager nats
 
 publish :: Nats -> Topic -> Maybe Topic -> Payload -> IO ()
 publish nats topic replyTo payload =
-    upstreamMessage (upstream nats) $ Pub topic replyTo payload
+    upstreamMessage (upstream nats) $ PUB topic replyTo payload
 {-# INLINE publish #-}
 
 subscribe :: Nats -> Topic -> Maybe QueueGroup -> IO (Sid, SubQueue)
 subscribe nats topic queueGroup = do
     sid <- newSid
-    let msg = Sub topic queueGroup sid
+    let msg = SUB topic queueGroup sid
     subQueue <- addSubscriber (subscriberMap nats) sid msg
     upstreamMessage (upstream nats) msg
     return (sid, subQueue)
@@ -85,14 +85,14 @@ subscribeAsync :: Nats -> Topic -> Maybe QueueGroup
                -> (Msg -> IO ()) -> IO Sid
 subscribeAsync nats topic queueGroup action = do
     sid <- newSid
-    let msg = Sub topic queueGroup sid
+    let msg = SUB topic queueGroup sid
     addAsyncSubscriber (subscriberMap nats) sid msg action 
     upstreamMessage (upstream nats) msg
     return sid
 
 unsubscribe :: Nats -> Sid -> Maybe Int -> IO ()
 unsubscribe nats sid limit = do
-    let msg = Unsub sid limit
+    let msg = UNSUB sid limit
     removeSubscriber (subscriberMap nats) sid
     upstreamMessage (upstream nats) msg
 

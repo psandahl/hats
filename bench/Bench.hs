@@ -31,13 +31,12 @@ import Data.ByteString.Lazy.Builder ( lazyByteString
 
 
 import Network.Nats
+import Network.Nats.Message.Message (Message (..))
 import Network.Nats.Message.Parser (parseMessage)
 import Network.Nats.Message.Writer (writeMessage)
 
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Lazy.Char8 as LBS
-
-import qualified Network.Nats.Message.Message as M
 
 main :: IO ()
 main = defaultMain suite
@@ -72,14 +71,14 @@ suite =
     ]
 
 -- | Write a list of Pub messages to a list of lazy ByteStrings.
-writePubs :: [M.Message] -> [LBS.ByteString]
+writePubs :: [Message] -> [LBS.ByteString]
 writePubs = map writeMessage
 
 -- | Parse a list of ByteStrings to a list of Msg messages.
-parseMsgs :: [BS.ByteString] -> [M.Message]
+parseMsgs :: [BS.ByteString] -> [Message]
 parseMsgs = map (fromResult . parse parseMessage)
     where
-      fromResult :: Result M.Message -> M.Message
+      fromResult :: Result Message -> Message
       fromResult (Done _ msg)   = msg
       fromResult (Partial cont) = fromResult (cont "")
       fromResult _              = error "Shall not happen"
@@ -148,13 +147,13 @@ medium = 10
 large :: Int
 large = 100
 
-smallPubMessages :: IO [M.Message]
+smallPubMessages :: IO [Message]
 smallPubMessages = million `pubMessages` small
 
-mediumPubMessages :: IO [M.Message]
+mediumPubMessages :: IO [Message]
 mediumPubMessages = million `pubMessages` medium
 
-largePubMessages :: IO [M.Message]
+largePubMessages :: IO [Message]
 largePubMessages = million `pubMessages` large
 
 smallMsgMessages :: IO [BS.ByteString]
@@ -166,7 +165,7 @@ mediumMsgMessages = million `msgMessages` medium
 largeMsgMessages :: IO [BS.ByteString]
 largeMsgMessages = million `msgMessages` large
 
-pubMessages :: Int -> Int -> IO [M.Message]
+pubMessages :: Int -> Int -> IO [Message]
 pubMessages rep size = return $ replicate rep (pubMessage size)
 
 msgMessages :: Int -> Int -> IO [BS.ByteString]
@@ -174,12 +173,12 @@ msgMessages rep size = do
     let xs = replicate rep (msgMessage size)
     return $ map (LBS.toStrict . writeMessage) xs
 
-pubMessage :: Int -> M.Message
-pubMessage = M.Pub "TOPIC.INBOX" (Just "REPLY.INBOX") . replicatePayload
+pubMessage :: Int -> Message
+pubMessage = PUB "TOPIC.INBOX" (Just "REPLY.INBOX") . replicatePayload
 
-msgMessage :: Int -> M.Message
+msgMessage :: Int -> Message
 msgMessage = 
-    M.Msg "TOPIC.INBOX" 123456 (Just "REPLY.INBOX") . replicatePayload
+    MSG "TOPIC.INBOX" 123456 (Just "REPLY.INBOX") . replicatePayload
 
 replicatePayload :: Int -> LBS.ByteString
 replicatePayload n =

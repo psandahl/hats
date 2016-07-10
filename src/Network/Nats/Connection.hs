@@ -105,8 +105,8 @@ waitForShutdown conn = do
 -- | Perform the handshake.
 -- TODO: More handshaking, user, password, tls, tokens etc.
 handshake :: URI -> NC.Connection -> Message -> IO ()
-handshake _uri conn Info {..} = do
-    let connect = Connect { clientVerbose     = Just False
+handshake _uri conn INFO {..} = do
+    let connect = CONNECT { clientVerbose     = Just False
                           , clientPedantic    = Just False
                           , clientSslRequired = Just False
                           , clientAuthToken   = Nothing

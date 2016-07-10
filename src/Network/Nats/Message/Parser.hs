@@ -106,7 +106,7 @@ msgMessageWithReply = do
     newLine
     payload <- LBS.fromStrict <$> AP.take len
     newLine
-    return $ Msg subject sid (Just reply) payload
+    return $ MSG subject sid (Just reply) payload
 
 msgMessageWithoutReply :: Parser Message
 msgMessageWithoutReply = do
@@ -120,7 +120,7 @@ msgMessageWithoutReply = do
     newLine
     payload <- LBS.fromStrict <$> AP.take len
     newLine
-    return $ Msg subject sid Nothing payload
+    return $ MSG subject sid Nothing payload
 
 pubMessage :: Parser Message
 pubMessage = do
@@ -139,7 +139,7 @@ pubMessageWithReply = do
     newLine
     payload <- LBS.fromStrict <$> AP.take len
     newLine
-    return $ Pub subject (Just reply) payload
+    return $ PUB subject (Just reply) payload
 
 pubMessageWithoutReply :: Parser Message
 pubMessageWithoutReply = do
@@ -151,7 +151,7 @@ pubMessageWithoutReply = do
     newLine
     payload <- LBS.fromStrict <$> AP.take len
     newLine
-    return $ Pub subject Nothing payload
+    return $ PUB subject Nothing payload
 
 subMessage :: Parser Message
 subMessage = do
@@ -168,7 +168,7 @@ subMessageWithQueue = do
     singleSpace
     sid <- parseSid
     newLine
-    return $ Sub subject (Just queue) sid
+    return $ SUB subject (Just queue) sid
     
 subMessageWithoutQueue :: Parser Message
 subMessageWithoutQueue = do
@@ -178,7 +178,7 @@ subMessageWithoutQueue = do
     singleSpace
     sid <- parseSid
     newLine
-    return $ Sub subject Nothing sid
+    return $ SUB subject Nothing sid
 
 unsubMessage :: Parser Message
 unsubMessage = do
@@ -191,7 +191,7 @@ unsubMessageWithoutAutoUnsubscribe = do
     singleSpace
     sid <- parseSid
     newLine
-    return $ Unsub sid Nothing
+    return $ UNSUB sid Nothing
 
 unsubMessageWithAutoUnsubscribe :: Parser Message
 unsubMessageWithAutoUnsubscribe = do
@@ -201,24 +201,24 @@ unsubMessageWithAutoUnsubscribe = do
     singleSpace
     maxMsgs <- decimal
     newLine
-    return $ Unsub sid (Just maxMsgs)
+    return $ UNSUB sid (Just maxMsgs)
 
 pingMessage :: Parser Message
 pingMessage = do
     skipSpace
-    (msgName "PING" >> newLine) *> return Ping
+    (msgName "PING" >> newLine) *> return PING
 
 pongMessage :: Parser Message
 pongMessage = do
     skipSpace
-    (msgName "PONG" >> newLine) *> return Pong
+    (msgName "PONG" >> newLine) *> return PONG
 
 okMessage :: Parser Message
 okMessage = do
     skipSpace
     msgName "+OK"
     newLine
-    return Ok
+    return OK
 
 errMessage :: Parser Message
 errMessage = do
@@ -227,7 +227,7 @@ errMessage = do
     skipSpace
     pe <- protocolError
     newLine
-    return $ Err pe
+    return $ ERR pe
 
 parseServerId :: Parser HandshakeMessageField
 parseServerId = pair "\"server_id\"" quotedString "server_id" String
@@ -328,7 +328,7 @@ parseSid = decimal
 
 mkInfoMessage :: [HandshakeMessageField] -> Parser Message
 mkInfoMessage fields =
-    Info <$> asByteString (lookup "server_id" fields)
+    INFO <$> asByteString (lookup "server_id" fields)
          <*> asByteString (lookup "version" fields)
          <*> asByteString (lookup "go" fields)
          <*> asByteString (lookup "host" fields)
@@ -341,7 +341,7 @@ mkInfoMessage fields =
 
 mkConnectMessage :: [HandshakeMessageField] -> Parser Message
 mkConnectMessage fields =
-    Connect <$> asBool (lookup "verbose" fields)
+    CONNECT <$> asBool (lookup "verbose" fields)
             <*> asBool (lookup "pedantic" fields)
             <*> asBool (lookup "ssl_required" fields)
             <*> asByteString (lookup "auth_token" fields)
