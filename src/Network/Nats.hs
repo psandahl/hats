@@ -6,7 +6,7 @@ module Network.Nats
     , Topic
     , QueueGroup
     , SubQueue
-    , ManagerConfiguration (..)
+    , ManagerSettings (..)
     , NatsException (URIError)
     , withNats
     , publish
@@ -14,7 +14,7 @@ module Network.Nats
     , subscribeAsync
     , unsubscribe
     , nextMsg
-    , defaultManagerConfiguration
+    , defaultManagerSettings
     ) where
 
 import Control.Exception (bracket, throwIO)
@@ -32,8 +32,8 @@ import Network.Nats.Api ( Nats
                         , initNats
                         , termNats
                         )
-import Network.Nats.ConnectionManager ( ManagerConfiguration (..)
-                                      , defaultManagerConfiguration
+import Network.Nats.ConnectionManager ( ManagerSettings (..)
+                                      , defaultManagerSettings
                                       )
 import Network.Nats.Subscriber (Msg (..), SubQueue)
 import Network.Nats.Types ( Sid
@@ -43,7 +43,7 @@ import Network.Nats.Types ( Sid
                           , NatsException (..)
                           )
 
-withNats :: ManagerConfiguration -> [String] -> (Nats -> IO a) -> IO a
+withNats :: ManagerSettings -> [String] -> (Nats -> IO a) -> IO a
 withNats config ss action = do
     let uris = convertURIs ss
     when (isLeft uris) $ do

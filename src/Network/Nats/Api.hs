@@ -17,7 +17,7 @@ import Control.Concurrent.STM ( atomically
 
 import Network.Nats.Conduit (Downstream, Upstream, upstreamMessage)
 import Network.Nats.ConnectionManager ( ConnectionManager
-                                      , ManagerConfiguration
+                                      , ManagerSettings
                                       , startConnectionManager
                                       , stopConnectionManager
                                       )
@@ -48,7 +48,7 @@ data Nats = Nats
     , dispatcherThread  :: !(Async ())
     }
 
-initNats :: ManagerConfiguration -> [URI] -> IO Nats
+initNats :: ManagerSettings -> [URI] -> IO Nats
 initNats config uris = do
     subscriberMap'    <- newSubscriberMap
     downstream'       <- newTQueueIO

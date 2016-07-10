@@ -17,7 +17,7 @@ import Network.Nats
 -- the received 'Msg' to have the expected data.
 recSingleMessage :: Assertion
 recSingleMessage =
-    void $ withNats defaultManagerConfiguration [defaultURI] $ \nats -> do
+    void $ withNats defaultManagerSettings [defaultURI] $ \nats -> do
         let topic   = "test"
             replyTo = Nothing
             payload = "test message"
@@ -36,7 +36,7 @@ recSingleMessage =
 -- the message receiver to receive the expected 'Msg' data.
 recSingleMessageAsync :: Assertion
 recSingleMessageAsync =
-    void $ withNats defaultManagerConfiguration [defaultURI] $ \nats -> do
+    void $ withNats defaultManagerSettings [defaultURI] $ \nats -> do
         let topic   = "test"
             replyTo = Nothing
             payload = "test message"
@@ -60,7 +60,7 @@ recSingleMessageAsync =
 -- block. To handle the blocking 'timeout' is used.
 recMessagesWithTmo :: Assertion
 recMessagesWithTmo =
-    void $ withNats defaultManagerConfiguration [defaultURI] $ \nats -> do
+    void $ withNats defaultManagerSettings [defaultURI] $ \nats -> do
         let topic    = "test"
             payload1 = "test message"
             payload2 = "test message 2"
@@ -90,7 +90,7 @@ recMessagesWithTmo =
 -- a message. No message shall show up in the queue.
 unsubscribeToTopic :: Assertion
 unsubscribeToTopic =
-    void $ withNats defaultManagerConfiguration [defaultURI] $ \nats -> do
+    void $ withNats defaultManagerSettings [defaultURI] $ \nats -> do
         let topic = "test"
 
         (sid, queue) <- subscribe nats topic Nothing

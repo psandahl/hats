@@ -2,10 +2,10 @@
 -- connections towards a NATS messaging server.
 module Network.Nats.ConnectionManager
     ( ConnectionManager
-    , ManagerConfiguration (..)
+    , ManagerSettings (..)
     , startConnectionManager
     , stopConnectionManager
-    , defaultManagerConfiguration
+    , defaultManagerSettings
     , randomSelect
     , roundRobinSelect
     ) where
@@ -26,7 +26,7 @@ import System.Random (randomRIO)
 import Network.Nats.Connection
 
 data ConnectionManager = ConnectionManager
-    { configuration :: !ManagerConfiguration
+    { settings      :: !ManagerSettings
     , upstream      :: !Upstream
     , downstream    :: !Downstream
     , uris          :: ![URI]
@@ -35,7 +35,7 @@ data ConnectionManager = ConnectionManager
     , managerThread :: !(TVar (Maybe (Async ())))
     }
 
-data ManagerConfiguration = ManagerConfiguration
+data ManagerSettings = ManagerSettings
     { reconnectionAttempts :: !Int
       -- ^ The number of times the connection manager shall try to
       -- connect a server before giving up.
@@ -60,16 +60,16 @@ data ManagerConfiguration = ManagerConfiguration
       -- the 'URI' for the server.
     }
 
-startConnectionManager :: ManagerConfiguration
+startConnectionManager :: ManagerSettings
                        -> Upstream
                        -> Downstream
                        -> [URI]
                        -> IO ConnectionManager
-startConnectionManager config upstream' downstream' uris' = do
+startConnectionManager settings' upstream' downstream' uris' = do
     connection'    <- newTVarIO Nothing
     currUri'       <- newTVarIO (-1)
     managerThread' <- newTVarIO Nothing
-    let mgr = ConnectionManager { configuration = config
+    let mgr = ConnectionManager { settings      = settings'
                                 , upstream      = upstream'
                                 , downstream    = downstream'
                                 , uris          = uris'
@@ -97,10 +97,10 @@ stopConnectionManager mgr = do
         let connection'' = fromJust connection'
         clientShutdown connection''
 
--- | Create a default 'ManagerConfiguration'.
-defaultManagerConfiguration :: ManagerConfiguration
-defaultManagerConfiguration =
-    ManagerConfiguration
+-- | Create a default 'ManagerSettings'.
+defaultManagerSettings :: ManagerSettings
+defaultManagerSettings =
+    ManagerSettings
         { reconnectionAttempts = 5
         , maxWaitTime          = 2
         , serverSelect         = roundRobinSelect
@@ -122,7 +122,7 @@ roundRobinSelect (xs, currIdx)
 
 connectionManager :: ConnectionManager -> IO ()
 connectionManager mgr = forever $ do
-    c <- tryConnect mgr (reconnectionAttempts $ configuration mgr)
+    c <- tryConnect mgr (reconnectionAttempts $ settings mgr)
     atomically $ writeTVar (connection mgr) (Just c)
     waitForShutdown c
 
@@ -130,7 +130,7 @@ tryConnect :: ConnectionManager -> Int -> IO Connection
 tryConnect _ 0 = error "No more attempts!"
 tryConnect mgr n = do
     putStrLn $ "Attempt: " ++ show n
-    let selector = serverSelect $ configuration mgr
+    let selector = serverSelect $ settings mgr
     currUri'      <- readTVarIO $ currUri mgr
     (uri, newUri) <- selector (uris mgr,  currUri')
     atomically $ writeTVar (currUri mgr) newUri

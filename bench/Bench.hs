@@ -88,12 +88,12 @@ parseMsgs = map (fromResult . parse parseMessage)
 -- This benchmark requires a running NATS server.
 pubPerf :: Int -> IO ()
 pubPerf rep =
-    withNats defaultManagerConfiguration [defaultURI] $ \nats ->
+    withNats defaultManagerSettings [defaultURI] $ \nats ->
         replicateM_ rep $ publish nats "bench" Nothing "hello"
 
 pubSubPerf :: Int -> IO ()
 pubSubPerf rep =
-    withNats defaultManagerConfiguration [defaultURI] $ \nats -> do
+    withNats defaultManagerSettings [defaultURI] $ \nats -> do
         (_, queue) <- subscribe nats "bench" Nothing
         rec <- async $ receiver queue rep
 
@@ -116,7 +116,7 @@ receiver queue limit = go 0
 -- This benchmark requires a running NATS server.
 pubSubAsyncPerf :: Int -> IO ()
 pubSubAsyncPerf rep =
-    withNats defaultManagerConfiguration [defaultURI] $ \nats -> do
+    withNats defaultManagerSettings [defaultURI] $ \nats -> do
         cnt <- newTVarIO 0
         void $ subscribeAsync nats "bench" Nothing $ asyncReceiver cnt
         replicateM_ rep $ publish nats "bench" Nothing "hello"
