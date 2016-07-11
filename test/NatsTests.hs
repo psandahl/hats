@@ -14,8 +14,8 @@ import Test.HUnit
 
 import Network.Nats
 
--- Subscriber on a topic and receive one message through a queue. Expect
--- the received 'Msg' to have the expected data.
+-- Subscribe on a topic and receive one message through a queue. Expect
+-- the received 'Msg' to echo the published payload.
 recSingleMessage :: Assertion
 recSingleMessage =
     void $ withNats defaultManagerSettings [defaultURI] $ \nats -> do

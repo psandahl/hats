@@ -6,6 +6,7 @@ import Test.Framework (Test, defaultMain, testGroup)
 import Test.Framework.Providers.HUnit (testCase)
 import Test.Framework.Providers.QuickCheck2 (testProperty)
 
+import JsonTests (recSingleJsonMessage)
 import NatsTests ( recSingleMessage
                  , recSingleMessageAsync
                  , recMessagesWithTmo
@@ -34,5 +35,9 @@ testSuite =
                    requestMessage
         , testCase "Unsubscribe to a topic before publishing"
                    unsubscribeToTopic
+        ]
+    , testGroup "JSON NATS API tests"
+        [ testCase "Reception of a single Json message"
+                   recSingleJsonMessage
         ]
     ]

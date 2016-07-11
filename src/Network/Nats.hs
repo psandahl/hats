@@ -1,6 +1,7 @@
 module Network.Nats
     ( Nats
     , Msg (..)
+    , JsonMsg (..)
     , Sid
     , Payload
     , Topic
@@ -10,11 +11,15 @@ module Network.Nats
     , NatsException (URIError)
     , withNats
     , publish
+    , publishJson
     , subscribe
     , subscribeAsync
+    , subscribeAsyncJson
     , request
+    , requestJson
     , unsubscribe
     , nextMsg
+    , nextJsonMsg
     , defaultManagerSettings
     ) where
 
@@ -37,6 +42,12 @@ import Network.Nats.Api ( Nats
 import Network.Nats.ConnectionManager ( ManagerSettings (..)
                                       , defaultManagerSettings
                                       )
+import Network.Nats.JsonApi ( JsonMsg (..)
+                            , publishJson
+                            , requestJson
+                            , subscribeAsyncJson
+                            , nextJsonMsg
+                            )
 import Network.Nats.Subscriber (Msg (..), SubQueue)
 import Network.Nats.Types ( Sid
                           , Payload
