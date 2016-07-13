@@ -6,6 +6,7 @@ import Test.Framework (Test, defaultMain, testGroup)
 import Test.Framework.Providers.HUnit (testCase)
 import Test.Framework.Providers.QuickCheck2 (testProperty)
 
+import CallbackTests (connectToCallback)
 import JsonTests (recSingleJsonMessage, requestJsonMessage)
 import NatsTests ( recSingleMessage
                  , recSingleMessageAsync
@@ -41,5 +42,9 @@ testSuite =
                    recSingleJsonMessage
         , testCase "Reception of (modified) Json message using requestJson"
                    requestJsonMessage
+        ]
+    , testGroup "Callback tests"
+        [ testCase "Test the connectTo callback at start of withNats"
+                   connectToCallback
         ]
     ]

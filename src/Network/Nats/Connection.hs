@@ -3,7 +3,7 @@
 -- | Abstraction for a connection towards a NATS server. It owns the
 -- networking stuff and performs NATS handshaking necessary.
 module Network.Nats.Connection
-    ( Connection
+    ( Connection (sockAddr)
     , Upstream
     , Downstream
     , makeConnection
@@ -24,7 +24,13 @@ import Control.Monad (void)
 import Data.Conduit (($$))
 import Data.Conduit.Attoparsec (sinkParser)
 import Data.Maybe (fromJust)
-import Network.Socket (HostName, PortNumber)
+import Network.Socket ( AddrInfo (..)
+                      , HostName
+                      , PortNumber
+                      , SockAddr
+                      , defaultHints
+                      , getAddrInfo
+                      )
 import Network.URI ( URI
                    , uriAuthority
                    , uriRegName
@@ -49,6 +55,7 @@ import qualified Network.Connection as NC
 -- | Record representing an active connection towards the NATS server.
 data Connection = Connection
     { connection :: !NC.Connection
+    , sockAddr   :: !SockAddr
     , fromNet    :: !(Async ())
     , toNet      :: !(Async ())
     }
@@ -63,6 +70,7 @@ makeConnection uri fromApp toApp =
       socketError :: SomeException -> IO (Maybe Connection)
       socketError e
         | isConnectionRefused e = return Nothing
+        | isResolvError       e = return Nothing
         | otherwise             =
             case fromException e of
                 (Just HandshakeException) -> return Nothing
@@ -70,12 +78,15 @@ makeConnection uri fromApp toApp =
             
 makeConnection' :: URI -> Upstream -> Downstream -> IO Connection
 makeConnection' uri fromApp toApp = do
+    let host = hostFromUri uri
+        port = portFromUri uri
+
     -- Make the connection.
     ctx  <- NC.initConnectionContext
     conn <- NC.connectTo ctx
         NC.ConnectionParams
-            { NC.connectionHostname  = hostFromUri uri
-            , NC.connectionPort      = portFromUri uri
+            { NC.connectionHostname  = host
+            , NC.connectionPort      = port
             , NC.connectionUseSocks  = Nothing
             , NC.connectionUseSecure = Nothing
             }
@@ -85,7 +96,8 @@ makeConnection' uri fromApp toApp = do
     handshake uri conn =<< getSingleMessage conn
 
     -- Now start the pipeline threads and let the fun begin.
-    Connection conn <$> async (connectionSource conn $$ streamSink toApp)
+    Connection conn <$> toSockAddr host port
+                    <*> async (connectionSource conn $$ streamSink toApp)
                     <*> async (streamSource fromApp $$ connectionSink conn)
 
 -- | Shut down a 'Connection' by cancel the threads.
@@ -127,7 +139,14 @@ hostFromUri = uriRegName . fromJust . uriAuthority
 -- | Select the port part from the 'URI'.
 portFromUri :: URI -> PortNumber
 portFromUri = fromIntegral . extractPort . uriPort . fromJust . uriAuthority
-                                
+
+-- | Resolve a 'HostName' and a 'PortNumber' to a 'SockAddr'.
+toSockAddr :: HostName -> PortNumber -> IO SockAddr
+toSockAddr host port =
+    addrAddress . head <$> getAddrInfo (Just defaultHints) 
+                                       (Just host)
+                                       (Just $ show port)
+
 -- | When selected the port is a string of format ":4222". Skip the colon,
 -- or if the port is missing, give the default port of 4222.
 extractPort :: String -> Int
@@ -140,6 +159,11 @@ extractPort _         = error "This is no valid port, ehh?"
 isConnectionRefused :: SomeException -> Bool
 isConnectionRefused e =
     show e == "connect: does not exist (Connection refused)"
+
+-- | Equally awkward, but this is how to check for resolv errors.
+isResolvError :: SomeException -> Bool
+isResolvError e =
+    show e == "getAddrInfo: does not exist (Name or service not known)"
 
 -- | Get one single message from the 'NC.Connection'. It should be the
 -- initial 'Info' message from the NATS server.

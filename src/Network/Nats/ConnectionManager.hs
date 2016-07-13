@@ -3,6 +3,7 @@
 module Network.Nats.ConnectionManager
     ( ConnectionManager
     , ManagerSettings (..)
+    , SockAddr
     , startConnectionManager
     , stopConnectionManager
     , defaultManagerSettings
@@ -21,6 +22,7 @@ import Control.Concurrent.STM ( TVar
 import Control.Monad (forever, void, when)
 import Data.Maybe (isJust, fromJust)
 import Network.URI (URI)
+import Network.Socket (SockAddr)
 import System.Random (randomRIO)
 
 import Network.Nats.Connection
@@ -51,13 +53,13 @@ data ManagerSettings = ManagerSettings
       -- uris and the current index. The reply is the chosen server and
       -- its index.
 
-    , connectInfo :: URI -> IO ()
-      -- ^ Callback to inform that a connection is made, with the 'URI'
-      -- for the server.
+    , connectedTo :: SockAddr -> IO ()
+      -- ^ Callback to inform that a connection is made to the NATS
+      -- server, with the 'SockAddr' for the server.
 
-    , disconnectInfo :: URI -> IO ()
-      -- ^ Callback to inform that a disconnect has happened, with
-      -- the 'URI' for the server.
+    , disconnectedFrom :: SockAddr -> IO ()
+      -- ^ Callback to inform that a disconnection to the NATS server
+      -- has happen. Give the 'SockAddr' for the server.
     }
 
 startConnectionManager :: ManagerSettings
@@ -104,8 +106,8 @@ defaultManagerSettings =
         { reconnectionAttempts = 5
         , maxWaitTime          = 2
         , serverSelect         = roundRobinSelect
-        , connectInfo          = \_ -> return ()
-        , disconnectInfo       = \_ -> return ()
+        , connectedTo          = const (return ())
+        , disconnectedFrom     = const (return ())
         }
 
 -- | Make a random selection of a server.
@@ -121,10 +123,13 @@ roundRobinSelect (xs, currIdx)
     | otherwise                = return (xs !! (currIdx + 1), currIdx + 1)
 
 connectionManager :: ConnectionManager -> IO ()
-connectionManager mgr = forever $ do
-    c <- tryConnect mgr (reconnectionAttempts $ settings mgr)
-    atomically $ writeTVar (connection mgr) (Just c)
-    waitForShutdown c
+connectionManager mgr = do
+    let connectedTo'      = connectedTo $ settings mgr
+    forever $ do
+        c <- tryConnect mgr (reconnectionAttempts $ settings mgr)
+        atomically $ writeTVar (connection mgr) (Just c)
+        connectedTo' $ sockAddr c
+        waitForShutdown c
 
 tryConnect :: ConnectionManager -> Int -> IO Connection
 tryConnect _ 0 = error "No more attempts!"

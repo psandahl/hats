@@ -51,6 +51,7 @@ test-suite hats-test
   hs-source-dirs:      test
   main-is:             Spec.hs
   other-modules:       MessageProps
+                       CallbackTests
                        JsonTests
                        NatsTests
   build-depends:       base

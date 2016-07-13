@@ -9,6 +9,7 @@ module Network.Nats
     , SubQueue
     , ManagerSettings (..)
     , NatsException (URIError)
+    , SockAddr
     , withNats
     , publish
     , publishJson
@@ -40,6 +41,7 @@ import Network.Nats.Api ( Nats
                         , termNats
                         )
 import Network.Nats.ConnectionManager ( ManagerSettings (..)
+                                      , SockAddr
                                       , defaultManagerSettings
                                       )
 import Network.Nats.JsonApi ( JsonMsg (..)
