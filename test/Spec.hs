@@ -6,7 +6,7 @@ import Test.Framework (Test, defaultMain, testGroup)
 import Test.Framework.Providers.HUnit (testCase)
 import Test.Framework.Providers.QuickCheck2 (testProperty)
 
-import CallbackTests (connectToCallback)
+import CallbackTests (callingCallbacks)
 import JsonTests (recSingleJsonMessage, requestJsonMessage)
 import NatsTests ( recSingleMessage
                  , recSingleMessageAsync
@@ -44,7 +44,7 @@ testSuite =
                    requestJsonMessage
         ]
     , testGroup "Callback tests"
-        [ testCase "Test the connectTo callback at start of withNats"
-                   connectToCallback
+        [ testCase "Test calling of connectedTo and disconnectedFrom"
+                   callingCallbacks
         ]
     ]

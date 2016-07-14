@@ -125,11 +125,13 @@ roundRobinSelect (xs, currIdx)
 connectionManager :: ConnectionManager -> IO ()
 connectionManager mgr = do
     let connectedTo'      = connectedTo $ settings mgr
+        disconnectedFrom' = disconnectedFrom $ settings mgr
     forever $ do
         c <- tryConnect mgr (reconnectionAttempts $ settings mgr)
         atomically $ writeTVar (connection mgr) (Just c)
         connectedTo' $ sockAddr c
         waitForShutdown c
+        disconnectedFrom' $ sockAddr c
 
 tryConnect :: ConnectionManager -> Int -> IO Connection
 tryConnect _ 0 = error "No more attempts!"
