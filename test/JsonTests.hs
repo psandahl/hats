@@ -11,6 +11,7 @@ import Data.Text (Text)
 import GHC.Generics (Generic)
 import Test.HUnit
 
+import Gnatsd
 import Network.Nats
  
 data TestRec = TestRec
@@ -23,8 +24,10 @@ instance ToJSON TestRec
 
 -- | Subscribe on a topic and receive one Json message through a queue.
 -- Expect the received 'JsonMsg' to echo the published payload.
-recSingleJsonMessage :: Assertion
-recSingleJsonMessage =
+recSingleJsonMessage, recSingleJsonMessage' :: Assertion
+recSingleJsonMessage = withGnatsd recSingleJsonMessage'
+
+recSingleJsonMessage' =
     withNats defaultManagerSettings [defaultURI] $ \nats -> do
         let topic   = "test"
             payload = TestRec { textVal = "Some Text"
@@ -44,8 +47,10 @@ recSingleJsonMessage =
 -- | Request a topic. Excersize both the requestJson api and the
 -- subscribeAsyncJson api, as the handler will modify the given Json
 -- record.
-requestJsonMessage :: Assertion
-requestJsonMessage =
+requestJsonMessage, requestJsonMessage' :: Assertion
+requestJsonMessage = withGnatsd requestJsonMessage'
+
+requestJsonMessage' =
     withNats defaultManagerSettings [defaultURI] $ \nats -> do
         let topic    = "test"
             payload1 = TestRec { textVal = "Some Text"

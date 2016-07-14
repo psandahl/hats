@@ -6,12 +6,15 @@ import Control.Concurrent.MVar
 import System.Timeout (timeout)
 import Test.HUnit
 
+import Gnatsd
 import Network.Nats
 
 -- | Check that the connectTo callback is called at the first connect
 -- when entering withNats.
-connectToCallback :: Assertion
-connectToCallback = do
+connectToCallback, connectToCallback' :: Assertion
+connectToCallback = withGnatsd connectToCallback'
+
+connectToCallback' = do
     connect <- newEmptyMVar
     let settings = defaultManagerSettings
                        { connectedTo = callback connect
