@@ -69,5 +69,3 @@ disconnected sync sockAddr = do
     putStrLn $ "Disconnected from: " ++ show sockAddr
     putMVar sync ()
 
-defaultURI :: String
-defaultURI = "nats://localhost:4222"

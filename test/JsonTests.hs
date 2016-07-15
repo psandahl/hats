@@ -70,7 +70,3 @@ requestJsonMessage' =
         JsonMsg _ _ _ (Just reply) <- requestJson nats topic payload1
 
         payload2 @=? reply
-
-
-defaultURI :: String
-defaultURI = "nats://localhost:4222"

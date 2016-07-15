@@ -130,9 +130,6 @@ unsubscribeToTopic' =
         -- As the test case is unsubscribed, nothing shall show up.
         reply <- timeout oneSec $ nextMsg queue
         Nothing @=? reply
-        
-defaultURI :: String
-defaultURI = "nats://localhost:4222"
 
 oneSec :: Int
 oneSec = 1000000

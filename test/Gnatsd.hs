@@ -6,6 +6,7 @@ module Gnatsd
     , startGnatsd
     , stopGnatsd
     , withGnatsd
+    , defaultURI
     ) where
 
 import Control.Concurrent (threadDelay)
@@ -34,3 +35,6 @@ withGnatsd action = bracket startGnatsd stopGnatsd (const action)
 
 waitAWhile :: IO ()
 waitAWhile = threadDelay 500000
+
+defaultURI :: String
+defaultURI = "nats://localhost:4222"
