@@ -14,6 +14,7 @@ import NatsTests ( recSingleMessage
                  , requestMessage
                  , unsubscribeToTopic
                  )
+import ReconnectionTests (subscribeAndReconnect)
 import MessageProps (encodeDecodeMessage)
 
 main :: IO ()
@@ -46,5 +47,9 @@ testSuite =
     , testGroup "Callback tests"
         [ testCase "Test calling of connectedTo and disconnectedFrom"
                    callingCallbacks
+        ]
+    , testGroup "Reconnection tests"
+        [ testCase "Test that subscription works after reconnect"
+                   subscribeAndReconnect
         ]
     ]

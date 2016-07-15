@@ -54,6 +54,7 @@ test-suite hats-test
                        CallbackTests
                        JsonTests
                        NatsTests
+                       ReconnectionTests
                        Gnatsd
   build-depends:       base
                      , aeson
