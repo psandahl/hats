@@ -8,6 +8,7 @@ module Network.Nats.Subscriber
     , addAsyncSubscriber
     , removeSubscriber
     , lookupSubscriber
+    , subscribeMessages
     ) where
 
 import Network.Nats.Types ( Payload
@@ -23,6 +24,7 @@ import Control.Concurrent.STM ( TQueue
                               , newTQueueIO
                               , modifyTVar
                               , readTVar
+                              , readTVarIO
                               )
 import Data.HashMap.Strict (HashMap)
 
@@ -30,7 +32,7 @@ import qualified Data.HashMap.Strict as HM
 
 type SubscriberMap = TVar (HashMap Sid Subscriber)
 
-data Subscriber 
+data Subscriber
     = Subscriber !(TQueue Msg) !Message
     | AsyncSubscriber !(Msg -> IO ()) !Message
 
@@ -50,7 +52,7 @@ addSubscriber subscriberMap sid msg = do
     return $ SubQueue queue
 {-# INLINE addSubscriber #-}
 
-addAsyncSubscriber :: SubscriberMap -> Sid -> Message 
+addAsyncSubscriber :: SubscriberMap -> Sid -> Message
                      -> (Msg -> IO ()) -> IO ()
 addAsyncSubscriber subscriberMap sid msg action = do
     let sub = AsyncSubscriber action msg
@@ -66,3 +68,12 @@ lookupSubscriber :: SubscriberMap -> Sid -> IO (Maybe Subscriber)
 lookupSubscriber subscriberMap sid =
     HM.lookup sid <$> atomically (readTVar subscriberMap)
 {-# INLINE lookupSubscriber #-}
+
+subscribeMessages :: SubscriberMap -> IO [Message]
+subscribeMessages subscriberMap =
+    map extractMessage . HM.elems <$> readTVarIO subscriberMap
+
+extractMessage :: Subscriber -> Message
+extractMessage (Subscriber _ msg)      = msg
+extractMessage (AsyncSubscriber _ msg) = msg
+{-# INLINE extractMessage #-}

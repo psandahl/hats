@@ -26,11 +26,13 @@ import Network.Socket (SockAddr)
 import System.Random (randomRIO)
 
 import Network.Nats.Connection
+import Network.Nats.Subscriber (SubscriberMap)
 
 data ConnectionManager = ConnectionManager
     { settings      :: !ManagerSettings
     , upstream      :: !Upstream
     , downstream    :: !Downstream
+    , subscriberMap :: !SubscriberMap
     , uris          :: ![URI]
     , connection    :: !(TVar (Maybe Connection))
     , currUri       :: !(TVar Int)
@@ -65,15 +67,18 @@ data ManagerSettings = ManagerSettings
 startConnectionManager :: ManagerSettings
                        -> Upstream
                        -> Downstream
+                       -> SubscriberMap
                        -> [URI]
                        -> IO ConnectionManager
-startConnectionManager settings' upstream' downstream' uris' = do
+startConnectionManager settings' upstream' downstream' 
+                       subscriberMap' uris' = do
     connection'    <- newTVarIO Nothing
     currUri'       <- newTVarIO (-1)
     managerThread' <- newTVarIO Nothing
     let mgr = ConnectionManager { settings      = settings'
                                 , upstream      = upstream'
                                 , downstream    = downstream'
+                                , subscriberMap = subscriberMap'
                                 , uris          = uris'
                                 , connection    = connection'
                                 , currUri       = currUri'
@@ -141,7 +146,8 @@ tryConnect mgr n = do
     currUri'      <- readTVarIO $ currUri mgr
     (uri, newUri) <- selector (uris mgr,  currUri')
     atomically $ writeTVar (currUri mgr) newUri
-    mConnection <- makeConnection uri (upstream mgr) (downstream mgr)
+    mConnection <- makeConnection uri (upstream mgr)
+                                  (downstream mgr) (subscriberMap mgr)
     case mConnection of
         Just c  -> return c
         Nothing -> do

@@ -5,6 +5,7 @@ module Network.Nats.Conduit
     , connectionSink
     , streamSource
     , streamSink
+    , messageChunker
     , upstreamMessage
     ) where
 
@@ -17,7 +18,7 @@ import Control.DeepSeq (deepseq)
 import Control.Monad (forever)
 import Control.Monad.IO.Class (liftIO)
 import Data.ByteString (ByteString)
-import Data.Conduit (Source, Sink, awaitForever, yield)
+import Data.Conduit (Conduit, Source, Sink, awaitForever, yield)
 
 import Network.Nats.Message.Message (Message)
 import Network.Nats.Message.Writer (writeMessage)
@@ -51,10 +52,14 @@ streamSink :: Downstream -> Sink ByteString IO ()
 streamSink stream = awaitForever $
     \chunk -> liftIO $ atomically $ writeTQueue stream chunk
 
+-- | Take one 'Message', encode it and create chunks of it.
+messageChunker :: Conduit Message IO ByteString
+messageChunker = awaitForever $
+    \msg -> mapM_ yield (LBS.toChunks $ writeMessage msg)
+
 -- | Not really a conduit, but a pusher of 'Message' chunks to the
 -- 'Upstream'.
 upstreamMessage :: Upstream -> Message -> IO ()
-{-# INLINE upstreamMessage #-}
 upstreamMessage upstream msg = do
     -- Most likely there are different threads pushing messages upstream
     -- using this function. Force as much work as possible outside of
@@ -65,3 +70,4 @@ upstreamMessage upstream msg = do
       upstreamMessage' :: [ByteString] -> IO ()
       upstreamMessage' chunks = 
           atomically $ mapM_ (writeTQueue upstream) chunks
+{-# INLINE upstreamMessage #-}

@@ -59,7 +59,8 @@ initNats config uris = do
     downstream'       <- newTQueueIO
     upstream'         <- newTQueueIO
     manager           <- startConnectionManager config upstream' 
-                                                downstream' uris
+                                                downstream' subscriberMap'
+                                                uris
     dispatcherThread' <- async $ dispatcher downstream' upstream'
                                             subscriberMap'
 

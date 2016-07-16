@@ -21,8 +21,9 @@ import Control.Exception ( SomeException
                          , handle
                          )
 import Control.Monad (void)
-import Data.Conduit (($$))
+import Data.Conduit (($$), (=$=))
 import Data.Conduit.Attoparsec (sinkParser)
+import Data.Conduit.List (sourceList)
 import Data.Maybe (fromJust)
 import Network.Socket ( AddrInfo (..)
                       , HostName
@@ -44,7 +45,9 @@ import Network.Nats.Conduit ( Upstream
                             , connectionSink
                             , streamSource
                             , streamSink
+                            , messageChunker
                             )
+import Network.Nats.Subscriber (SubscriberMap, subscribeMessages)
 import Network.Nats.Message.Message (Message (..))
 import Network.Nats.Message.Parser (parseMessage)
 import Network.Nats.Message.Writer (writeMessage)
@@ -63,9 +66,11 @@ data Connection = Connection
 -- | Make a new 'Connection' as specified by the URI. Provide one
 -- 'Upstream' queue with data from the application to the server, and
 -- one 'Downstream' queue with data from the server to the application.
-makeConnection :: URI -> Upstream -> Downstream -> IO (Maybe Connection)
-makeConnection uri fromApp toApp =
-    socketError `handle` (Just <$> makeConnection' uri fromApp toApp)
+makeConnection :: URI -> Upstream -> Downstream -> SubscriberMap 
+               -> IO (Maybe Connection)
+makeConnection uri fromApp toApp subscriberMap =
+    socketError `handle` (Just <$> makeConnection' uri fromApp 
+                                                   toApp subscriberMap)
     where
       socketError :: SomeException -> IO (Maybe Connection)
       socketError e
@@ -76,8 +81,9 @@ makeConnection uri fromApp toApp =
                 (Just HandshakeException) -> return Nothing
                 _                         -> throwIO e
             
-makeConnection' :: URI -> Upstream -> Downstream -> IO Connection
-makeConnection' uri fromApp toApp = do
+makeConnection' :: URI -> Upstream -> Downstream -> SubscriberMap
+                -> IO Connection
+makeConnection' uri fromApp toApp subscriberMap = do
     let host = hostFromUri uri
         port = portFromUri uri
 
@@ -95,10 +101,26 @@ makeConnection' uri fromApp toApp = do
     -- the client and the server.
     handshake uri conn =<< getSingleMessage conn
 
+    -- Fetch already made subscriptions for replay.
+    msgs <- subscribeMessages subscriberMap
+
     -- Now start the pipeline threads and let the fun begin.
     Connection conn <$> toSockAddr host port
-                    <*> async (connectionSource conn $$ streamSink toApp)
-                    <*> async (streamSource fromApp $$ connectionSink conn)
+                    <*> async (recvPipe conn toApp)
+                    <*> (async $ do
+                            replaySubscriptions conn msgs
+                            sendPipe fromApp conn)
+
+recvPipe :: NC.Connection -> Downstream -> IO ()
+recvPipe conn toApp = connectionSource conn $$ streamSink toApp
+
+sendPipe :: Upstream -> NC.Connection -> IO ()
+sendPipe fromApp conn = streamSource fromApp $$ connectionSink conn
+
+-- | Replay all stored subscriptions to the 'NC.Connection'.
+replaySubscriptions :: NC.Connection -> [Message] -> IO ()
+replaySubscriptions conn msgs =
+    sourceList msgs =$= messageChunker $$ connectionSink conn
 
 -- | Shut down a 'Connection' by cancel the threads.
 clientShutdown :: Connection -> IO ()
