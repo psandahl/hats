@@ -1,4 +1,14 @@
 {-# LANGUAGE OverloadedStrings #-}
+-- |
+-- Module:      Network.Nats.Api
+-- Copyright:   (c) 2016 Patrik Sandahl
+-- License:     MIT
+-- Maintainer:  Patrik Sandahl <patrik.sandahl@gmail.com>
+-- Stability:   experimental
+-- Portability: portable
+--
+-- NATS base API as provided by this library. A thin JSON layer is
+-- added in "Network.Nats.JsonApi".
  module Network.Nats.Api
     ( Nats
     , initNats
@@ -12,10 +22,7 @@
     ) where
 
 import Control.Concurrent.Async (Async, async)
-import Control.Concurrent.STM ( atomically
-                              , newTQueueIO
-                              , readTQueue
-                              )
+import Control.Concurrent.STM (atomically , newTQueueIO, readTQueue)
 import Control.Exception (bracket)
 
 import Network.Nats.Conduit (Downstream, Upstream, upstreamMessage)
@@ -25,18 +32,10 @@ import Network.Nats.ConnectionManager ( ConnectionManager
                                       , stopConnectionManager
                                       )
 import Network.Nats.Dispatcher (dispatcher)
-import Network.Nats.Types ( Sid
-                          , Topic
-                          , Payload
-                          , QueueGroup
-                          )
-import Network.Nats.Subscriber ( SubscriberMap
-                               , Msg
-                               , SubQueue (..)
-                               , newSubscriberMap
-                               , addSubscriber
-                               , addAsyncSubscriber
-                               , removeSubscriber
+import Network.Nats.Types (Sid, Topic, Payload, QueueGroup)
+import Network.Nats.Subscriber ( SubscriberMap, Msg, SubQueue (..)
+                               , newSubscriberMap, addSubscriber
+                               , addAsyncSubscriber, removeSubscriber
                                )
 import Network.Nats.Message.Message (Message (..))
 
@@ -45,14 +44,29 @@ import System.Random (randomRIO)
 
 import qualified Data.ByteString.Char8 as BS
 
+-- | The type of the handle used by the API. To the user this
+-- type is opaque. The Nats handle is only valid within the scope of
+-- 'Network.Nats.withNats' function.
 data Nats = Nats
     { subscriberMap     :: SubscriberMap
+    -- ^ A map to hold 'Topic' subscribers.
+
     , connectionManager :: !ConnectionManager
+    -- ^ The 'ConnectionManager'.
+
     , downstream        :: !Downstream
+    -- ^ The stream of messages from the NATS server to the client.
+
     , upstream          :: !Upstream
+    -- ^ The stream of messages from the client to the NATS server.
+
     , dispatcherThread  :: !(Async ())
+    -- ^ The message dispatcher thread.
     }
 
+-- | Setting up of all the necessary resources needed by 'Nats'.
+-- Suited for use with the style of resource management given by
+-- 'Control.Exception.bracket'.
 initNats :: ManagerSettings -> [URI] -> IO Nats
 initNats config uris = do
     subscriberMap'    <- newSubscriberMap
@@ -71,9 +85,20 @@ initNats config uris = do
                 , dispatcherThread  = dispatcherThread'
                 }
 
+-- | Clean up 'Nats' resource. Used to clean up after 'initNats'.
 termNats :: Nats -> IO ()
 termNats nats = stopConnectionManager $ connectionManager nats
 
+-- | Publish some 'Payload' message to a 'Topic'. The NATS server will
+-- distribute the message to subscribers of the 'Topic'.
+--
+-- > publish nats "GREETINGS" Nothing "Hello, there!"
+--
+-- Will publish the string Hello, there! to subscribers of GREETINGS. No
+-- reply-to 'Topic' is provided. To request a reply, provide a 'Topic'
+-- where the subscriber can publish a reply.
+--
+-- > publish nats "GREETINGS" (Just "THANKS") "Hello, there!"
 publish :: Nats -> Topic -> Maybe Topic -> Payload -> IO ()
 publish nats topic replyTo payload =
     upstreamMessage (upstream nats) $ PUB topic replyTo payload

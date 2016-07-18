@@ -1,9 +1,9 @@
 -- |
 -- Module:      Network.Nats
 -- Copyright:   (c) 2016 Patrik Sandahl
--- License:     BSD3
+-- License:     MIT
 -- Maintainer:  Patrik Sandahl <patrik.sandahl@gmail.com>
--- Stability:   experimantal
+-- Stability:   experimental
 -- Portability: portable
 --
 -- A Haskell client for the NATS messaging system.
