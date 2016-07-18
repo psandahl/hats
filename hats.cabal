@@ -1,9 +1,9 @@
 name:                hats
 version:             0.1.0.0
-synopsis:            Initial project template from stack
+synopsis:            A Haskell client for the NATS messaging system
 description:         Please see README.md
 homepage:            https://github.com/kosmoskatten/hats#readme
-license:             BSD3
+license:             MIT
 license-file:        LICENSE
 author:              Patrik Sandahl
 maintainer:          patrik.sandahl@gmail.com
