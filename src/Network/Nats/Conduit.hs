@@ -1,3 +1,12 @@
+-- |
+-- Module:      Network.Nats.Conduit
+-- Copyright:   (c) 2016 Patrik Sandahl
+-- License:     MIT
+-- Maintainer:  Patrik Sandahl <patrik.sandahl@gmail.com>
+-- Stability:   experimental
+-- Portability: portable
+--
+-- 'Conduit' style helper functions.
 module Network.Nats.Conduit
     ( Downstream
     , Upstream 
@@ -9,11 +18,7 @@ module Network.Nats.Conduit
     , upstreamMessage
     ) where
 
-import Control.Concurrent.STM ( TQueue
-                              , atomically
-                              , readTQueue
-                              , writeTQueue
-                              )
+import Control.Concurrent.STM (TQueue, atomically, readTQueue, writeTQueue)
 import Control.DeepSeq (deepseq)
 import Control.Monad (forever)
 import Control.Monad.IO.Class (liftIO)
