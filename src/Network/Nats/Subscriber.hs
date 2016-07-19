@@ -20,19 +20,11 @@ module Network.Nats.Subscriber
     , subscribeMessages
     ) where
 
-import Network.Nats.Types ( Payload
-                          , Sid
-                          , Topic
-                          )
+import Network.Nats.Types (Payload, Sid, Topic)
 import Network.Nats.Message.Message (Message (..))
 
-import Control.Concurrent.STM ( TQueue
-                              , TVar
-                              , atomically
-                              , newTVarIO
-                              , newTQueueIO
-                              , modifyTVar
-                              , readTVar
+import Control.Concurrent.STM ( TQueue, TVar, atomically, newTVarIO
+                              , newTQueueIO, modifyTVar, readTVar
                               , readTVarIO
                               )
 import Data.HashMap.Strict (HashMap)
