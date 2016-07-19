@@ -104,6 +104,16 @@ publish nats topic replyTo payload =
     upstreamMessage (upstream nats) $ PUB topic replyTo payload
 {-# INLINE publish #-}
 
+-- | Subscribe to a 'Topic'. Optionally a subscription can be part of
+-- a 'QueueGroup'. The function will immediately return with a tuple of
+-- a 'Sid' for the subscription, and a 'SubQueue' from where messages can
+-- be fetched using 'nextMsg'.
+--
+-- > (sid, queue) <- subscribe nats "do.stuff" Nothing
+--
+-- Or
+--
+-- > (sid, queue) <- subscribe nats "do.stuff" (Just "stuffworkers")
 subscribe :: Nats -> Topic -> Maybe QueueGroup -> IO (Sid, SubQueue)
 subscribe nats topic queueGroup = do
     sid <- newSid
@@ -112,6 +122,24 @@ subscribe nats topic queueGroup = do
     upstreamMessage (upstream nats) msg
     return (sid, subQueue)
 
+-- | Subscribe to a 'Topic'. Optionally a subscription can be part of
+-- a 'QueueGroup'.
+--
+-- Subscriptions using this function will be asynchronous, and each
+-- message will be handled in its own thread. A message handler is
+-- an IO action taking a 'Msg' as its argument. The function return
+-- the 'Sid' for the subscription.
+--
+-- > sid <- subscribeAsync nats "do.stuff" Nothing $ \msg -> do
+-- >     -- Do stuff with the msg
+--
+-- Or
+--
+-- > sid <- subscribeAsync nats "do.stuff" Nothing messageHandler
+-- >
+-- > messageHandler :: Msg -> IO ()
+-- > messageHandler msg = do
+-- >    -- Do stuff with the msg
 subscribeAsync :: Nats -> Topic -> Maybe QueueGroup
                -> (Msg -> IO ()) -> IO Sid
 subscribeAsync nats topic queueGroup action = do
@@ -121,6 +149,15 @@ subscribeAsync nats topic queueGroup action = do
     upstreamMessage (upstream nats) msg
     return sid
 
+-- | Request is publishing a 'Payload' to a 'Topic' and waiting for a
+-- 'Msg'. Request is a blocking operation, but can be interrupted
+-- by 'System.Timeout.timeout'.
+--
+-- > msg <- request nats "do.stuff" "A little payload"
+--
+-- Or
+--
+-- > maybeMsg <- timeout tmo $ request nats "do.stuff" "A little payload"
 request :: Nats -> Topic -> Payload -> IO Msg
 request nats topic payload = do
     replyTo <- randomReplyTo
@@ -131,12 +168,29 @@ request nats topic payload = do
                 nextMsg queue
             )
 
+-- | Unsubscribe from a subscription using its 'Sid'. Optionally a limit
+-- for automatic unsubscription can be given. Unsubscription will happen
+-- once the number of messages - the limit - has been reached.
+--
+-- > unsubscribe nats sid Nothing
+--
+-- Or
+--
+-- > unsubscribe nats sid (Just 100)
 unsubscribe :: Nats -> Sid -> Maybe Int -> IO ()
 unsubscribe nats sid limit = do
     let msg = UNSUB sid limit
     removeSubscriber (subscriberMap nats) sid
     upstreamMessage (upstream nats) msg
 
+-- | Fetch a new 'Msg' from the 'SubQueue'. Fetching a message is a
+-- blocking operation, but can be interrupted by 'System.Timeout.timeout'.
+--
+-- > msg <- nextMsg queue
+--
+-- Or
+--
+-- > maybeMsg <- timeout tmo $ nextMsg queue
 nextMsg :: SubQueue -> IO Msg
 nextMsg (SubQueue queue) = atomically $ readTQueue queue
 {-# INLINE nextMsg #-}
