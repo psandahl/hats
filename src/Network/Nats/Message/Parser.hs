@@ -52,8 +52,7 @@ parseMessage = msgMessage
 infoMessage :: Parser Message
 infoMessage = do
     skipSpace
-    msgName "INFO"
-    singleSpace
+    spacedMsgName "INFO"
     void $ char '{'
     fields <- parseInfoMessageFields
     void $ char '}'
@@ -77,8 +76,7 @@ parseInfoMessageFields = infoMessageField `sepBy` char ','
 connectMessage :: Parser Message
 connectMessage = do
     skipSpace
-    msgName "CONNECT"
-    singleSpace
+    spacedMsgName "CONNECT"
     void $ char '{'
     fields <- parseConnectMessageFields
     void $ char '}'
@@ -105,8 +103,7 @@ msgMessage = do
 
 msgMessageWithReply :: Parser Message
 msgMessageWithReply = do
-    msgName "MSG"
-    singleSpace
+    spacedMsgName "MSG"
     subject <- takeTill isSpace
     singleSpace
     sid <- parseSid
@@ -121,8 +118,7 @@ msgMessageWithReply = do
 
 msgMessageWithoutReply :: Parser Message
 msgMessageWithoutReply = do
-    msgName "MSG"
-    singleSpace
+    spacedMsgName "MSG"
     subject <- takeTill isSpace
     singleSpace
     sid <- parseSid
@@ -140,8 +136,7 @@ pubMessage = do
 
 pubMessageWithReply :: Parser Message
 pubMessageWithReply = do
-    msgName "PUB"
-    singleSpace
+    spacedMsgName "PUB"
     subject <- takeTill isSpace
     singleSpace
     reply <- takeTill isSpace
@@ -154,8 +149,7 @@ pubMessageWithReply = do
 
 pubMessageWithoutReply :: Parser Message
 pubMessageWithoutReply = do
-    msgName "PUB"
-    singleSpace
+    spacedMsgName "PUB"
     subject <- takeTill isSpace
     singleSpace
     len <- decimal
@@ -171,8 +165,7 @@ subMessage = do
 
 subMessageWithQueue :: Parser Message
 subMessageWithQueue = do
-    msgName "SUB"
-    singleSpace
+    spacedMsgName "SUB"
     subject <- takeTill isSpace
     singleSpace
     queue <- takeTill isSpace
@@ -183,8 +176,7 @@ subMessageWithQueue = do
     
 subMessageWithoutQueue :: Parser Message
 subMessageWithoutQueue = do
-    msgName "SUB"
-    singleSpace
+    spacedMsgName "SUB"
     subject <- takeTill isSpace
     singleSpace
     sid <- parseSid
@@ -198,16 +190,14 @@ unsubMessage = do
 
 unsubMessageWithoutAutoUnsubscribe :: Parser Message
 unsubMessageWithoutAutoUnsubscribe = do
-    msgName "UNSUB"
-    singleSpace
+    spacedMsgName "UNSUB"
     sid <- parseSid
     newLine
     return $ UNSUB sid Nothing
 
 unsubMessageWithAutoUnsubscribe :: Parser Message
 unsubMessageWithAutoUnsubscribe = do
-    msgName "UNSUB"
-    singleSpace
+    spacedMsgName "UNSUB"
     sid <- parseSid
     singleSpace
     maxMsgs <- decimal
@@ -234,8 +224,7 @@ okMessage = do
 errMessage :: Parser Message
 errMessage = do
     skipSpace
-    msgName "-ERR"
-    skipSpace
+    spacedMsgName "-ERR"
     pe <- protocolError
     newLine
     return $ ERR pe
@@ -377,12 +366,20 @@ asInt Nothing            = return Nothing
 asInt (Just (Int value)) = return (Just value)
 asInt _                  = fail "Expected an Int"
 
+spacedMsgName :: ByteString -> Parser ()
+spacedMsgName name = do
+    msgName name
+    singleSpace
+{-# INLINE spacedMsgName #-}
+
 singleSpace :: Parser ()
 singleSpace = void space
+{-# INLINE singleSpace #-}
 
 newLine :: Parser ()
 newLine = void $ string "\r\n"
+{-# INLINE newLine #-}
 
 msgName :: ByteString -> Parser ()
 msgName = void . stringCI
-
+{-# INLINE msgName #-}
