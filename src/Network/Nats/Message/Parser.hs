@@ -1,4 +1,14 @@
 {-# LANGUAGE OverloadedStrings #-}
+-- |
+-- Module:      Network.Nats.Message.Parser
+-- Copyright:   (c) 2016 Patrik Sandahl
+-- License:     MIT
+-- Maintainer:  Patrik Sandahl <patrik.sandahl@gmail.com>
+-- Stability:   experimental
+-- Portability: portable
+--
+-- NATS protocol 'Message' parser. To be used with the
+-- "Data.Attoparsec.ByteString" library.
 module Network.Nats.Message.Parser
     ( parseMessage
     ) where
@@ -25,6 +35,7 @@ data HandshakeMessageValue =
 
 type HandshakeMessageField = (ByteString, HandshakeMessageValue)
 
+-- | Parse a NATS message.
 parseMessage :: Parser Message
 parseMessage = msgMessage
            <|> infoMessage 

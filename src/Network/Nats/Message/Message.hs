@@ -1,5 +1,14 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric  #-}
+-- |
+-- Module:      Network.Nats.Message.Message
+-- Copyright:   (c) 2016 Patrik Sandahl
+-- License:     MIT
+-- Maintainer:  Patrik Sandahl <patrik.sandahl@gmail.com>
+-- Stability:   experimental
+-- Portability: portable
+--
+-- Message definitions for the NATS protocol.
 module Network.Nats.Message.Message
     ( Message (..)
     , ProtocolError (..)
@@ -9,11 +18,7 @@ import Control.DeepSeq (NFData)
 import GHC.Generics (Generic)
 import qualified Data.ByteString as BS
 
-import Network.Nats.Types ( Topic
-                          , Payload
-                          , Sid
-                          , QueueGroup
-                          )
+import Network.Nats.Types (Topic, Payload, Sid, QueueGroup)
 
 -- | Protocol error enumeration.
 data ProtocolError
@@ -30,7 +35,7 @@ data ProtocolError
 -- | The kind of messages that can be exchanged between the NATS server
 -- and a NATS client.
 -- Some of the documentation strings are taken from:
--- http://nats.io/documentation/internals/nats-protocol/
+-- <https://nats.io/documentation/internals/nats-protocol/>
 data Message =
     -- | As soon as the server accepts a connection from the client, it
     -- will send information about itself and the configuration and
@@ -57,7 +62,7 @@ data Message =
            -- ^ Maximum payload size that server will accept from client.
          }
 
-    -- | The CONNECT message is analogous to the Info message. Once the
+    -- | The CONNECT message is the reply to the Info message. Once the
     -- client has established a TCP/IP socket connection with the NATS
     -- server, and an Info message has been received from the server,
     -- the client may sent a Connect message to the NATS server to

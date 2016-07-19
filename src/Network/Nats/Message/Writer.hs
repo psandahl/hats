@@ -1,6 +1,15 @@
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE OverloadedStrings         #-}
 {-# LANGUAGE RecordWildCards           #-}
+-- |
+-- Module:      Network.Nats.Message.Writer
+-- Copyright:   (c) 2016 Patrik Sandahl
+-- License:     MIT
+-- Maintainer:  Patrik Sandahl <patrik.sandahl@gmail.com>
+-- Stability:   experimental
+-- Portability: portable
+--
+-- Serialize NATS 'Message's to 'LBS.ByteString's.
 module Network.Nats.Message.Writer
     ( writeMessage
     ) where
@@ -12,9 +21,7 @@ import Data.List (foldl', intersperse)
 
 import qualified Data.ByteString.Lazy as LBS
 
-import Network.Nats.Message.Message ( Message (..)
-                                    , ProtocolError (..)
-                                    )
+import Network.Nats.Message.Message (Message (..), ProtocolError (..))
 import Network.Nats.Types (Sid)
 
 -- | Existentially quantified Field type, to allow for a polymorph
@@ -25,20 +32,20 @@ data Field = forall w. Writeable w => Field !w
 class Writeable w where
     write :: w -> Builder
 
--- | Instance for Bool.
+-- | Instance for 'Bool'.
 instance Writeable Bool where
     write False = byteString "false"
     write True  = byteString "true"
 
--- | Instance for Int.
+-- | Instance for 'Int'.
 instance Writeable Int where
     write = intDec
 
--- | Instance for ByteString.
+-- | Instance for 'ByteString'.
 instance Writeable ByteString where
     write value = charUtf8 '\"' <> byteString value <> charUtf8 '\"'
 
--- | Translate a Message value to a lazy ByteString.
+-- | Translate a 'Message' value to a 'LBS.ByteString'.
 writeMessage :: Message -> LBS.ByteString
 writeMessage = toLazyByteString . writeMessage'
 
