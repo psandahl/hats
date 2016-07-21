@@ -1,4 +1,3 @@
-{-# LANGUAGE RecordWildCards #-}
 -- | The dispatcher is receiving 'Downstream' messages from the NATS
 -- server and dispatches them to their receivers.
 module Network.Nats.Dispatcher

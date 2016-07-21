@@ -107,7 +107,7 @@ makeConnection' uri fromApp toApp subscriberMap = do
     -- Now start the pipeline threads and let the fun begin.
     Connection conn <$> toSockAddr host port
                     <*> async (recvPipe conn toApp)
-                    <*> (async $ do
+                    <*> async (do
                             replaySubscriptions conn msgs
                             sendPipe fromApp conn)
 

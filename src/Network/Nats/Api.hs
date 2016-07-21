@@ -9,7 +9,7 @@
 --
 -- NATS base API as provided by this library. A thin JSON layer is
 -- added in "Network.Nats.JsonApi".
- module Network.Nats.Api
+module Network.Nats.Api
     ( Nats
     , initNats
     , termNats
