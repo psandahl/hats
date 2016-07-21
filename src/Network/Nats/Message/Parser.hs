@@ -37,21 +37,22 @@ type HandshakeMessageField = (ByteString, HandshakeMessageValue)
 
 -- | Parse a NATS message.
 parseMessage :: Parser Message
-parseMessage = msgMessage
-           <|> infoMessage 
-           <|> connectMessage
-           <|> pubMessage
-           <|> subMessage
-           <|> unsubMessage
-           <|> pingMessage
-           <|> pongMessage
-           <|> okMessage 
-           <|> errMessage
+parseMessage = skipSpace *> parseMessage'
+    where
+      parseMessage' = msgMessage
+                  <|> infoMessage 
+                  <|> connectMessage
+                  <|> pubMessage
+                  <|> subMessage
+                  <|> unsubMessage
+                  <|> pingMessage
+                  <|> pongMessage
+                  <|> okMessage 
+                  <|> errMessage
 
 -- | The parsing of the Info message is not performance critical.
 infoMessage :: Parser Message
 infoMessage = do
-    skipSpace
     spacedMsgName "INFO"
     void $ char '{'
     fields <- parseInfoMessageFields
@@ -75,7 +76,6 @@ parseInfoMessageFields = infoMessageField `sepBy` char ','
 -- | Nor is the parsing the Connect message performace critical.
 connectMessage :: Parser Message
 connectMessage = do
-    skipSpace
     spacedMsgName "CONNECT"
     void $ char '{'
     fields <- parseConnectMessageFields
@@ -96,138 +96,107 @@ parseConnectMessageFields = connectMessageField `sepBy` char ','
                         <|> parseClientLang
                         <|> parseVersion
 
+-- | Parse a MSG message ...
 msgMessage :: Parser Message
-msgMessage = do
-    skipSpace
-    msgMessageWithReply <|> msgMessageWithoutReply
+msgMessage = msgMessageWithReply <|> msgMessageWithoutReply
 
+-- | ... with a reply-to field.
 msgMessageWithReply :: Parser Message
 msgMessageWithReply = do
     spacedMsgName "MSG"
-    subject <- takeTill isSpace
-    singleSpace
-    sid <- parseSid
-    singleSpace
-    reply <- takeTill isSpace
-    singleSpace
-    len <- decimal
-    newLine
-    payload <- LBS.fromStrict <$> AP.take len
-    newLine
-    return $ MSG subject sid (Just reply) payload
+    MSG <$> takeTill isSpace <* singleSpace
+        <*> parseSid <* singleSpace
+        <*> (Just <$> takeTill isSpace <* singleSpace)
+        <*> readPayload <* newLine
 
+-- | ... and without a reply-to.
 msgMessageWithoutReply :: Parser Message
 msgMessageWithoutReply = do
     spacedMsgName "MSG"
-    subject <- takeTill isSpace
-    singleSpace
-    sid <- parseSid
-    singleSpace
-    len <- decimal
-    newLine
-    payload <- LBS.fromStrict <$> AP.take len
-    newLine
-    return $ MSG subject sid Nothing payload
+    MSG <$> takeTill isSpace <* singleSpace
+        <*> parseSid <* singleSpace
+        <*> pure Nothing
+        <*> readPayload <* newLine
 
+-- | Parse a PUB message ...
 pubMessage :: Parser Message
-pubMessage = do
-    skipSpace
-    pubMessageWithReply <|> pubMessageWithoutReply
+pubMessage = pubMessageWithReply <|> pubMessageWithoutReply
 
+-- | ... with a reply-to field.
 pubMessageWithReply :: Parser Message
 pubMessageWithReply = do
     spacedMsgName "PUB"
-    subject <- takeTill isSpace
-    singleSpace
-    reply <- takeTill isSpace
-    singleSpace
-    len <- decimal
-    newLine
-    payload <- LBS.fromStrict <$> AP.take len
-    newLine
-    return $ PUB subject (Just reply) payload
+    PUB <$> takeTill isSpace <* singleSpace
+        <*> (Just <$> takeTill isSpace <* singleSpace)
+        <*> readPayload <* newLine
 
+-- | ... and without a reply-to.
 pubMessageWithoutReply :: Parser Message
 pubMessageWithoutReply = do
     spacedMsgName "PUB"
-    subject <- takeTill isSpace
-    singleSpace
-    len <- decimal
-    newLine
-    payload <- LBS.fromStrict <$> AP.take len
-    newLine
-    return $ PUB subject Nothing payload
+    PUB <$> takeTill isSpace <* singleSpace
+        <*> pure Nothing
+        <*> readPayload <* newLine
 
+-- | Helper parser to read the length/payload pair from a PUB/MSG
+-- message.
+readPayload :: Parser LBS.ByteString
+readPayload = do
+    len <- decimal <* newLine
+    LBS.fromStrict <$> AP.take len
+{-# INLINE readPayload #-}
+
+-- | Parse a SUB message ...
 subMessage :: Parser Message
-subMessage = do
-    skipSpace
-    subMessageWithQueue <|> subMessageWithoutQueue
+subMessage = subMessageWithQueue <|> subMessageWithoutQueue
 
+-- | ... with a queue group.
 subMessageWithQueue :: Parser Message
 subMessageWithQueue = do
     spacedMsgName "SUB"
-    subject <- takeTill isSpace
-    singleSpace
-    queue <- takeTill isSpace
-    singleSpace
-    sid <- parseSid
-    newLine
-    return $ SUB subject (Just queue) sid
+    SUB <$> takeTill isSpace <* singleSpace
+        <*> (Just <$> takeTill isSpace <* singleSpace)
+        <*> parseSid <* newLine
     
+-- | ... and without a queue group.
 subMessageWithoutQueue :: Parser Message
 subMessageWithoutQueue = do
     spacedMsgName "SUB"
-    subject <- takeTill isSpace
-    singleSpace
-    sid <- parseSid
-    newLine
-    return $ SUB subject Nothing sid
+    SUB <$> takeTill isSpace <* singleSpace
+        <*> pure Nothing
+        <*> parseSid <* newLine
 
+-- | Parse an UNSUB message ...
 unsubMessage :: Parser Message
-unsubMessage = do
-    skipSpace
-    unsubMessageWithoutAutoUnsubscribe <|> unsubMessageWithAutoUnsubscribe
+unsubMessage = unsubMessageWithLimit <|> unsubMessageWithoutLimit
 
-unsubMessageWithoutAutoUnsubscribe :: Parser Message
-unsubMessageWithoutAutoUnsubscribe = do
+-- | ... with an unsubscribe limit.
+unsubMessageWithLimit :: Parser Message
+unsubMessageWithLimit = do
     spacedMsgName "UNSUB"
-    sid <- parseSid
-    newLine
-    return $ UNSUB sid Nothing
+    UNSUB <$> parseSid <* singleSpace
+          <*> (Just <$> decimal) <* newLine
 
-unsubMessageWithAutoUnsubscribe :: Parser Message
-unsubMessageWithAutoUnsubscribe = do
+-- | ... and without an unsubscribe limit.
+unsubMessageWithoutLimit :: Parser Message
+unsubMessageWithoutLimit = do
     spacedMsgName "UNSUB"
-    sid <- parseSid
-    singleSpace
-    maxMsgs <- decimal
-    newLine
-    return $ UNSUB sid (Just maxMsgs)
+    UNSUB <$> parseSid <* newLine
+          <*> pure Nothing
 
 pingMessage :: Parser Message
-pingMessage = do
-    skipSpace
-    (msgName "PING" >> newLine) *> return PING
+pingMessage = (msgName "PING" >> newLine) *> pure PING
 
 pongMessage :: Parser Message
-pongMessage = do
-    skipSpace
-    (msgName "PONG" >> newLine) *> return PONG
+pongMessage = (msgName "PONG" >> newLine) *> pure PONG
 
 okMessage :: Parser Message
-okMessage = do
-    skipSpace
-    msgName "+OK"
-    newLine
-    return OK
+okMessage = (msgName "+OK" >> newLine) *> pure OK
 
 errMessage :: Parser Message
 errMessage = do
-    skipSpace
     spacedMsgName "-ERR"
-    pe <- protocolError
-    newLine
-    return $ ERR pe
+    ERR <$> protocolError <* newLine
 
 parseServerId :: Parser HandshakeMessageField
 parseServerId = pair "\"server_id\"" quotedString "server_id" String
