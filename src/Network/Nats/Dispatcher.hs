@@ -1,4 +1,12 @@
--- | The dispatcher is receiving 'Downstream' messages from the NATS
+-- |
+-- Module:      Network.Nats.Dispatcher
+-- Copyright:   (c) 2016 Patrik Sandahl
+-- License:     MIT
+-- Maintainer:  Patrik Sandahl <patrik.sandahl@gmail.com>
+-- Stability:   experimental
+-- Portability: portable
+--
+-- The dispatcher is receiving 'Downstream' messages from the NATS
 -- server and dispatches them to their receivers.
 module Network.Nats.Dispatcher
     ( dispatcher
@@ -10,20 +18,15 @@ import Control.Exception (SomeException, handle)
 import Control.Monad (void)
 import Control.Monad.IO.Class (liftIO)
 import Data.Conduit (Sink, ($$), (=$=), awaitForever)
-import Data.Conduit.Attoparsec ( ParseError
-                               , PositionRange
+import Data.Conduit.Attoparsec ( ParseError, PositionRange
                                , conduitParserEither
                                )
 
-import Network.Nats.Conduit ( Downstream
-                            , Upstream
-                            , streamSource
-                            , upstreamMessage
+import Network.Nats.Conduit ( Downstream, Upstream
+                            , streamSource, upstreamMessage
                             )
-import Network.Nats.Subscriber ( Msg (..)
-                               , Subscriber (..)
-                               , SubscriberMap
-                               , lookupSubscriber
+import Network.Nats.Subscriber ( Msg (..), Subscriber (..)
+                               , SubscriberMap, lookupSubscriber
                                )
 import Network.Nats.Message.Message (Message (..))
 import Network.Nats.Message.Parser (parseMessage)

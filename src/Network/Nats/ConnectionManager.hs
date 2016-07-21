@@ -1,4 +1,12 @@
--- | Configuration and functionality for setting up and maintaining
+-- |
+-- Module:      Network.Nats.ConnectionManager
+-- Copyright:   (c) 2016 Patrik Sandahl
+-- License:     MIT
+-- Maintainer:  Patrik Sandahl <patrik.sandahl@gmail.com>
+-- Stability:   experimental
+-- Portability: portable
+--
+-- Configuration and functionality for setting up and maintaining
 -- connections towards a NATS messaging server.
 module Network.Nats.ConnectionManager
     ( ConnectionManager
@@ -13,11 +21,8 @@ module Network.Nats.ConnectionManager
 
 import Control.Concurrent (threadDelay)
 import Control.Concurrent.Async (Async, async, cancel, waitCatch)
-import Control.Concurrent.STM ( TVar
-                              , atomically
-                              , newTVarIO
-                              , readTVarIO
-                              , writeTVar
+import Control.Concurrent.STM ( TVar, atomically, newTVarIO
+                              , readTVarIO, writeTVar
                               )
 import Control.Monad (forever, void, when)
 import Data.Maybe (isJust, fromJust)
@@ -25,7 +30,10 @@ import Network.URI (URI)
 import Network.Socket (SockAddr)
 import System.Random (randomRIO)
 
-import Network.Nats.Connection
+import Network.Nats.Connection ( Connection, Downstream
+                               , Upstream, makeConnection
+                               , clientShutdown, waitForShutdown, sockAddr
+                               )
 import Network.Nats.Subscriber (SubscriberMap)
 
 data ConnectionManager = ConnectionManager
@@ -39,6 +47,9 @@ data ConnectionManager = ConnectionManager
     , managerThread :: !(TVar (Maybe (Async ())))
     }
 
+-- | A set of parameters to guide the behavior of the connection manager.
+-- A default set of parameters can be obtained by calling
+-- 'defaultManagerSettings'.
 data ManagerSettings = ManagerSettings
     { reconnectionAttempts :: !Int
       -- ^ The number of times the connection manager shall try to
@@ -64,6 +75,7 @@ data ManagerSettings = ManagerSettings
       -- has happen. Give the 'SockAddr' for the server.
     }
 
+-- | Start the connection manager.
 startConnectionManager :: ManagerSettings
                        -> Upstream
                        -> Downstream
@@ -84,6 +96,7 @@ startConnectionManager settings' upstream' downstream'
                                 , currUri       = currUri'
                                 , managerThread = managerThread'
                                 }
+
     thread <- async $ connectionManager mgr
     atomically $ writeTVar managerThread' (Just thread)
     return mgr
