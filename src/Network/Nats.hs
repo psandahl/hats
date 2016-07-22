@@ -13,6 +13,9 @@ module Network.Nats
     -- * Basic usage of this library
     -- $basic_usage
 
+    -- * Usage of JSON encoding
+    -- $json_usage
+
       Nats
     , Msg (..)
     , JsonMsg (..)
@@ -138,3 +141,94 @@ expectedScheme uri = uriScheme uri == "nats:" || uriScheme uri == "tls:"
 -- >
 -- >       -- Press a key to terminate program.
 -- >       void $ getChar
+
+-- $json_usage
+--
+-- There are built-in support for JSON encoded message payloads. The
+-- JSON support is using "Data.Aeson".
+--
+-- This example show both a requester and a subscriber use JSON as
+-- message payload. The toy example implements a service which
+-- randomly generates a person, given the gender specification of
+-- female or male.
+--
+-- The examples require the libraries "Data.Aeson", "Data.Text" and
+-- "System.Random" to be installed.
+--
+-- > {-# LANGUAGE DeriveGeneric     #-}
+-- > {-# LANGUAGE OverloadedStrings #-}
+-- > module Main where
+-- >
+-- > import Control.Monad
+-- > import Data.Aeson
+-- > import Data.Text (Text)
+-- > import GHC.Generics
+-- > import Network.Nats
+-- > import System.Random
+-- > import Text.Printf
+-- >
+-- > data Gender = Female | Male
+-- >    deriving (Eq, Generic, Show)
+-- >
+-- > data GenderSpec = GenderSpec
+-- >    { gender :: !Gender }
+-- >    deriving (Generic, Show)
+-- >
+-- > data Person = Person
+-- >     { firstName :: !Text
+-- >     , surname   :: !Text
+-- >     , age       :: !Int
+-- >     } deriving (Generic, Show)
+-- >
+-- > instance FromJSON Gender
+-- > instance ToJSON Gender
+-- > instance FromJSON GenderSpec
+-- > instance ToJSON GenderSpec
+-- > instance FromJSON Person
+-- > instance ToJSON Person
+-- >
+-- > main :: IO ()
+-- > main =
+-- >     withNats defaultManagerSettings ["nats://localhost"] $ \nats -> do
+-- >
+-- >         -- Simple service that generates a random person from
+-- >         -- a gender spec.
+-- >         void $ subscribeAsyncJson nats "person" Nothing $
+-- >             \(JsonMsg _ (Just reply) _ (Just spec)) ->
+-- >                 publishJson nats reply Nothing =<< randomPerson spec
+-- >
+-- >         -- Request a female.
+-- >         JsonMsg _ _ _ (Just resp)
+-- >             <- requestJson nats "person" $ GenderSpec Female
+-- >
+-- >         printf "Received: %s\n" (showPerson resp)
+-- >
+-- >         -- And a male.
+-- >         JsonMsg _ _ _ (Just resp')
+-- >             <- requestJson nats "person" $ GenderSpec Male
+-- >
+-- >         printf "Received: %s\n" (showPerson resp')
+-- >
+-- > showPerson :: Person -> String
+-- > showPerson = show
+-- >
+-- > randomPerson :: GenderSpec -> IO Person
+-- > randomPerson spec
+-- >     | gender spec == Female = Person <$> randomFrom females
+-- >                                      <*> randomFrom surnames
+-- >                                      <*> randomFrom [1..99]
+-- >     | otherwise             = Person <$> randomFrom males
+-- >                                      <*> randomFrom surnames
+-- >                                      <*> randomFrom [1..99]
+-- >
+-- > males :: [Text]
+-- > males = ["Curt", "David", "James", "Edward", "Karl"]
+-- >
+-- > females :: [Text]
+-- > females = ["Claire", "Eva", "Sara", "Monica", "Lisa"]
+-- >
+-- > surnames :: [Text]
+-- > surnames = ["Andersson", "Smith", "von Helsing", "Burns", "Baker"]
+-- >
+-- > randomFrom :: [a] -> IO a
+-- > randomFrom xs = (!!) xs <$> randomRIO (0, length xs - 1)
