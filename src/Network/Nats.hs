@@ -13,8 +13,6 @@ module Network.Nats
     -- * Basic usage of this library
     -- $basic_usage
 
-    -- ** Obtaining a Nats handle
-    -- $obtaining_nats
       Nats
     , Msg (..)
     , JsonMsg (..)
@@ -92,34 +90,51 @@ expectedScheme uri = uriScheme uri == "nats:" || uriScheme uri == "tls:"
 
 -- $basic_usage
 --
--- This section gives examples on basic usage of this library. All
--- examples requires the presence of a NATS server.
+-- This section gives examples on basic usage of this library. The
+-- example requires the presence of a NATS server, running on localhost
+-- using the default port 4222. If other host or port, adapt the
+-- example.
 --
--- The API provided by this library requires that the user get hold
--- of a 'Nats' handle, a data structure opaque to the user.
-
--- $obtaining_nats
---
--- To obtain a 'Nats' handle, use 'withNats' and provide an IO action
--- that will take the 'Nats' handle as input value. The action can
--- either be a lambda or a named function.
---
--- The other argument given to 'withNats' are settings for the library's
--- connection manager and a list of URI strings describing available
--- NATS servers.
---
--- To get hold of the default 'ManagerSettings' just call
--- 'defaultManagerSettings'.
---
--- If you have a NATS server running on localhost, binding to port 4222,
--- a valid URI string is nats://localhost:4222.
---
--- > withNats defaultManagerSettings ["nats://localhost"] $ \nats -> do
--- >   -- Do stuff with the handle. Can only be used inside withNats
---
--- Or
---
--- > withNats defaultManagerSettings ["nats://localhost"] natsApp
+-- > {-# LANGUAGE OverloadedStrings #-}
+-- > module Main where
 -- >
--- > natsApp :: Nats -> IO ()
--- > natsApp nats = -- Do stuff ...
+-- > import Control.Monad
+-- > import Network.Nats
+-- > import Text.Printf
+-- >
+-- > main :: IO ()
+-- > main =
+-- >   -- The connection will close when the action has finished.
+-- >   withNats defaultManagerSettings ["nats://localhost"] $ \nats -> do
+-- >
+-- >       -- Simple publisher.
+-- >       publish nats "foo" Nothing "Hello world"
+-- >
+-- >       -- Simple async subscriber.
+-- >       void $ subscribeAsync nats "foo" Nothing $
+-- >           \(Msg _ _ _ payload) ->
+-- >               printf "(Async) Received a message: %s\n" (show payload)
+-- >
+-- >       -- | Simple sync subscriber.
+-- >       (sid, queue) <- subscribe nats "foo" Nothing
+-- >       Msg _ _ _ payload <- nextMsg queue
+-- >
+-- >       -- Wait for the async handler's printout. Then press a key.
+-- >       void $ getChar
+-- >
+-- >       printf "(Sync) Received a message: %s\n" (show payload)
+-- >
+-- >       -- Unsubscribe.
+-- >       unsubscribe nats sid Nothing
+-- >
+-- >       -- Replies (to the below request).
+-- >       void $ subscribeAsync nats "help" Nothing $
+-- >           \(Msg _ (Just reply) _ _) ->
+-- >               publish nats reply Nothing "I can help"
+-- >
+-- >       -- Request.
+-- >       (Msg _ _ _ response) <- request nats "help" "Help me"
+-- >       printf "(Req) Received a message: %s\n" (show response)
+-- >
+-- >       -- Press a key to terminate program.
+-- >       void $ getChar
