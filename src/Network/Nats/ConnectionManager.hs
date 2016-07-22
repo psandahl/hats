@@ -1,3 +1,4 @@
+{-# LANGUAGE RecordWildCards #-}
 -- |
 -- Module:      Network.Nats.ConnectionManager
 -- Copyright:   (c) 2016 Patrik Sandahl
@@ -24,8 +25,7 @@ import Control.Concurrent.Async (Async, async, cancel, waitCatch)
 import Control.Concurrent.STM ( TVar, atomically, newTVarIO
                               , readTVarIO, writeTVar
                               )
-import Control.Monad (forever, void, when)
-import Data.Maybe (isJust, fromJust)
+import Control.Monad (void)
 import Network.URI (URI)
 import Network.Socket (SockAddr)
 import System.Random (randomRIO)
@@ -36,15 +36,21 @@ import Network.Nats.Connection ( Connection, Downstream
                                )
 import Network.Nats.Subscriber (SubscriberMap)
 
+-- | Resourced aquired by the connection manager. The record is
+-- opaque to the user.
 data ConnectionManager = ConnectionManager
-    { settings      :: !ManagerSettings
-    , upstream      :: !Upstream
+    { connection    :: TVar (Maybe Connection)
+    , managerThread :: Async ()
+    }
+
+-- | Internal runtime context for the connection manager.
+data ManagerContext = ManagerContext
+    { upstream      :: !Upstream
     , downstream    :: !Downstream
     , subscriberMap :: !SubscriberMap
     , uris          :: ![URI]
-    , connection    :: !(TVar (Maybe Connection))
-    , currUri       :: !(TVar Int)
-    , managerThread :: !(TVar (Maybe (Async ())))
+    , currUriIdx    :: !Int
+    , currConn      :: TVar (Maybe Connection)
     }
 
 -- | A set of parameters to guide the behavior of the connection manager.
@@ -82,40 +88,32 @@ startConnectionManager :: ManagerSettings
                        -> SubscriberMap
                        -> [URI]
                        -> IO ConnectionManager
-startConnectionManager settings' upstream' downstream' 
+startConnectionManager settings upstream' downstream' 
                        subscriberMap' uris' = do
-    connection'    <- newTVarIO Nothing
-    currUri'       <- newTVarIO (-1)
-    managerThread' <- newTVarIO Nothing
-    let mgr = ConnectionManager { settings      = settings'
-                                , upstream      = upstream'
-                                , downstream    = downstream'
-                                , subscriberMap = subscriberMap'
-                                , uris          = uris'
-                                , connection    = connection'
-                                , currUri       = currUri'
-                                , managerThread = managerThread'
-                                }
+    -- The transactional 'Connection' is shared between the 'ManagerContext'
+    -- and the 'ConnectionManager'.
+    conn <- newTVarIO Nothing
+    let context = ManagerContext { upstream      = upstream'
+                                 , downstream    = downstream'
+                                 , subscriberMap = subscriberMap'
+                                 , uris          = uris'
+                                 , currUriIdx    = -1
+                                 , currConn      = conn
+                                 }
+    ConnectionManager <$> pure conn
+                      <*> async (managerLoop settings context)
 
-    thread <- async $ connectionManager mgr
-    atomically $ writeTVar managerThread' (Just thread)
-    return mgr
-
+-- | Stop the connection manager, clean up stuff.
 stopConnectionManager :: ConnectionManager -> IO ()
 stopConnectionManager mgr = do
     -- The order when shutting down things is important. First the
     -- managerThread must be stopped (so it not tries to create new
     -- connections). Then the 'Connection' can be stopped.
-    managerThread' <- readTVarIO $ managerThread mgr
-    when (isJust managerThread') $ do
-        let thread = fromJust managerThread'
-        cancel thread
-        void $ waitCatch thread
+    cancel $ managerThread mgr
+    void $ waitCatch (managerThread mgr)
 
-    connection' <- readTVarIO $ connection mgr
-    when (isJust connection') $ do
-        let connection'' = fromJust connection'
-        clientShutdown connection''
+    -- The 'Connection' is folded in 'Maybe'.
+    mapM_ clientShutdown =<< readTVarIO (connection mgr)
 
 -- | Create a default 'ManagerSettings'.
 defaultManagerSettings :: ManagerSettings
@@ -140,29 +138,23 @@ roundRobinSelect (xs, currIdx)
     | currIdx == length xs - 1 = return (head xs, 0)
     | otherwise                = return (xs !! (currIdx + 1), currIdx + 1)
 
-connectionManager :: ConnectionManager -> IO ()
-connectionManager mgr = do
-    let connectedTo'      = connectedTo $ settings mgr
-        disconnectedFrom' = disconnectedFrom $ settings mgr
-    forever $ do
-        c <- tryConnect mgr (reconnectionAttempts $ settings mgr)
-        atomically $ writeTVar (connection mgr) (Just c)
-        connectedTo' $ sockAddr c
-        waitForShutdown c
-        disconnectedFrom' $ sockAddr c
+-- | Connect to a server and maintain the connection.
+managerLoop :: ManagerSettings -> ManagerContext -> IO ()
+managerLoop mgr@ManagerSettings {..} ctx@ManagerContext {..} = do
+    (newIdx, conn) <- tryConnect mgr ctx reconnectionAttempts
+    atomically $ writeTVar currConn (Just conn)
+    connectedTo $ sockAddr conn
+    waitForShutdown conn
+    atomically $ writeTVar currConn Nothing
+    disconnectedFrom $ sockAddr conn
+    managerLoop mgr $ ctx { currUriIdx = newIdx }
 
-tryConnect :: ConnectionManager -> Int -> IO Connection
-tryConnect _ 0 = error "No more attempts!"
-tryConnect mgr n = do
-    putStrLn $ "Attempt: " ++ show n
-    let selector = serverSelect $ settings mgr
-    currUri'      <- readTVarIO $ currUri mgr
-    (uri, newUri) <- selector (uris mgr,  currUri')
-    atomically $ writeTVar (currUri mgr) newUri
-    mConnection <- makeConnection uri (upstream mgr)
-                                  (downstream mgr) (subscriberMap mgr)
-    case mConnection of
-        Just c  -> return c
-        Nothing -> do
-            threadDelay 1000000
-            tryConnect mgr (n - 1)
+-- | Select a server and connect.
+tryConnect :: ManagerSettings -> ManagerContext -> Int
+            -> IO (Int, Connection)
+tryConnect _ _ 0 = error "No more attempts. Giving up."
+tryConnect mgr@ManagerSettings {..} ctx@ManagerContext {..} attempts = do
+    (uri, uriIdx) <- serverSelect (uris, currUriIdx)
+    maybe (threadDelay 500000 >> tryConnect mgr ctx (attempts - 1))
+          (\conn -> return (uriIdx, conn)) 
+              =<< makeConnection uri upstream downstream subscriberMap
