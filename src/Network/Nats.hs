@@ -67,16 +67,26 @@ import Network.Nats.Types ( Sid, Payload, Topic, QueueGroup
                           , NatsException (..)
                           )
 
--- | Run an IO action while connected to a NATS server. Default
--- 'ManagerSettings' can be given by the 'defaultManagerSettings'
--- function.
---
--- There must be at least one URI string for specifying connection(s) to
--- NATS. The only URI schemes accepted are nats and tls.
---
--- The connection towards NATS will be termated once the action has
--- finished.
-withNats :: ManagerSettings -> [String] -> (Nats -> IO a) -> IO a
+-- | Run an IO action while connection towards NATS is maintained. If
+-- a NATS connection is lost, the connection manager will try to
+-- reconnect the same or one of the other NATS servers
+-- (as specified by the provided URI strings).
+-- Strategies for reconnection is specified
+-- in the 'ManagerSettings'. All subscriptions will be automatically
+-- replayed once a new connection is made.
+withNats :: ManagerSettings
+            -- ^ Settings for the connection manager. Default
+            -- 'ManagerSettings' can be obtained by
+            -- 'defaultManagerSettings'.
+         -> [String]
+            -- ^ A list of URI strings to specify the NATS servers
+            -- available. If any URI string is malformed an 'URIError'
+            -- exception is thrown. Parsing of URIs is performed using
+            -- the 'parseAbsoluteURI' function.
+         -> (Nats -> IO a)
+            -- ^ The user provided action. Once the action is terminated
+            -- the connection will close.
+         -> IO a
 withNats settings uriStrings action =
     either (throwIO . URIError)
            (\uris -> bracket (initNats settings uris) termNats action)
