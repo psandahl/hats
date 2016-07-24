@@ -10,11 +10,17 @@
 -- See <https://nats.io> for general information and documentation.
 module Network.Nats
     (
+    -- * Limitations in implementation
+    -- $limitations
+
     -- * Basic usage of this library
     -- $basic_usage
 
     -- * Usage of JSON encoding
     -- $json_usage
+
+    -- * Wildcard subscriptions
+    -- $wildcards
 
       Nats
     , Msg (..)
@@ -90,6 +96,10 @@ convertURIs ss =
 -- | Only expect the schemes of nats or tls.
 expectedScheme :: URI -> Bool
 expectedScheme uri = uriScheme uri == "nats:" || uriScheme uri == "tls:"
+
+-- $limitations
+--
+-- The current version of this library does not yet support TLS.
 
 -- $basic_usage
 --
@@ -232,3 +242,34 @@ expectedScheme uri = uriScheme uri == "nats:" || uriScheme uri == "tls:"
 -- >
 -- > randomFrom :: [a] -> IO a
 -- > randomFrom xs = (!!) xs <$> randomRIO (0, length xs - 1)
+
+-- $wildcards
+--
+-- When subscribing one can use wildcards to match variable parts of
+-- a topic.
+--
+-- > {-# LANGUAGE OverloadedStrings #-}
+-- > module Main where
+-- >
+-- > import Control.Monad
+-- > import Network.Nats
+-- > import Text.Printf
+-- >
+-- > main :: IO ()
+-- > main =
+-- >     withNats defaultManagerSettings ["nats://localhost"] $ \nats -> do
+-- >
+-- >         -- "*" matches any token, at any level of the subject.
+-- >         (_, queue1) <- subscribe nats "foo.*.baz" Nothing
+-- >         (_, queue2) <- subscribe nats "foo.bar.*" Nothing
+-- >
+-- >         -- ">" matches any length of the tail of the subject, and can
+-- >         -- only be the last token.
+-- >         (_, queue3) <- subscribe nats "foo.>" Nothing
+-- >
+-- >         -- This publishing matches all the above.
+-- >         publish nats "foo.bar.baz" Nothing "Hello world"
+-- >
+-- >         forM_ [queue1, queue2, queue3] $ \queue -> do
+-- >             Msg _ _ _ payload <- nextMsg queue
+-- >             printf "Received: %s\n" (show payload)
