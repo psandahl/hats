@@ -25,9 +25,10 @@ import Data.Conduit.Attoparsec ( ParseError, PositionRange
 import Network.Nats.Conduit ( Downstream, Upstream
                             , streamSource, upstreamMessage
                             )
-import Network.Nats.Subscriber ( Msg (..), Subscriber (..)
-                               , SubscriberMap, lookupSubscriber
+import Network.Nats.Subscriber ( Subscriber (..), SubscriberMap
+                               , lookupSubscriber
                                )
+import Network.Nats.Types (Msg (..))
 import Network.Nats.Message.Message (Message (..))
 import Network.Nats.Message.Parser (parseMessage)
 

@@ -59,12 +59,12 @@ import Network.Nats.ConnectionManager ( ManagerSettings (..)
                                       , SockAddr
                                       , defaultManagerSettings
                                       )
-import Network.Nats.JsonApi ( JsonMsg (..), publishJson, requestJson
+import Network.Nats.JsonApi ( publishJson, requestJson
                             , subscribeAsyncJson, nextJsonMsg
                             )
-import Network.Nats.Subscriber (Msg (..), SubQueue)
-import Network.Nats.Types ( Sid, Payload, Topic, QueueGroup
-                          , NatsException (..)
+import Network.Nats.Subscriber (SubQueue)
+import Network.Nats.Types ( Msg (..), JsonMsg (..), Sid, Payload
+                          , Topic, QueueGroup, NatsException (..)
                           )
 
 -- | Run an IO action while connection towards NATS is maintained. If

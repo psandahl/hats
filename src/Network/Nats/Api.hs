@@ -33,10 +33,11 @@ import Network.Nats.ConnectionManager ( ConnectionManager
                                       )
 import Network.Nats.Dispatcher (dispatcher)
 import Network.Nats.Types (Sid, Topic, Payload, QueueGroup)
-import Network.Nats.Subscriber ( SubscriberMap, Msg, SubQueue (..)
+import Network.Nats.Subscriber ( SubscriberMap, SubQueue (..)
                                , newSubscriberMap, addSubscriber
                                , addAsyncSubscriber, removeSubscriber
                                )
+import Network.Nats.Types (Msg)
 import Network.Nats.Message.Message (Message (..))
 
 import Network.URI (URI)

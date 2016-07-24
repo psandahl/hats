@@ -9,8 +9,7 @@
 -- NATS base library extended with with JSON coding of payload. JSON
 -- handling is provided by "Data.Aeson".
 module Network.Nats.JsonApi
-    ( JsonMsg (..)
-    , publishJson
+    ( publishJson
     , subscribeAsyncJson
     , requestJson
     , nextJsonMsg
@@ -19,14 +18,8 @@ module Network.Nats.JsonApi
 import Data.Aeson
 
 import Network.Nats.Api (Nats, publish, subscribeAsync, request, nextMsg)
-import Network.Nats.Subscriber (Msg (..), SubQueue)
-import Network.Nats.Types (Topic, Sid, QueueGroup)
-
--- | A NATS message as received by the user, with payload encoded as
--- JSON. JSON handling is provided by "Data.Aeson".
-data JsonMsg a =
-    JsonMsg !Topic !(Maybe Topic) {-# UNPACK #-} !Sid !(Maybe a)
-    deriving (Eq, Show)
+import Network.Nats.Subscriber (SubQueue)
+import Network.Nats.Types (Msg (..), JsonMsg (..), Topic, Sid, QueueGroup)
 
 -- | As 'publish', but with JSON payload.
 publishJson :: ToJSON a => Nats -> Topic -> Maybe Topic -> a -> IO ()

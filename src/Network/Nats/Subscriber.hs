@@ -10,7 +10,6 @@
 module Network.Nats.Subscriber
     ( SubscriberMap
     , Subscriber (..)
-    , Msg (..)
     , SubQueue (..)
     , newSubscriberMap
     , addSubscriber
@@ -20,7 +19,7 @@ module Network.Nats.Subscriber
     , subscribeMessages
     ) where
 
-import Network.Nats.Types (Payload, Sid, Topic)
+import Network.Nats.Types (Msg, Sid)
 import Network.Nats.Message.Message (Message (..))
 
 import Control.Concurrent.STM ( TQueue, TVar, atomically, newTVarIO
@@ -43,10 +42,6 @@ data Subscriber
     | AsyncSubscriber !(Msg -> IO ()) !Message
     -- ^ An asynchronous subscriber, with an IO action taking a
     -- 'Msg'.
-
--- | A NATS message as received by the user.
-data Msg = Msg !Topic !(Maybe Topic) {-# UNPACK #-} !Sid !Payload
-    deriving (Eq, Show)
 
 -- | A subscriber queue, a queue of 'Msg' handled by a 'TQueue'.
 newtype SubQueue = SubQueue (TQueue Msg)
