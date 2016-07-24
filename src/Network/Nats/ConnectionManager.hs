@@ -20,7 +20,6 @@ module Network.Nats.ConnectionManager
     , roundRobinSelect
     ) where
 
-import Control.Concurrent (threadDelay)
 import Control.Concurrent.Async (Async, async, cancel, waitCatch)
 import Control.Concurrent.STM ( TVar, atomically, newTVarIO
                               , readTVarIO, writeTVar
@@ -61,24 +60,32 @@ data ManagerSettings = ManagerSettings
       -- ^ The number of times the connection manager shall try to
       -- connect a server before giving up.
     
-    , maxWaitTime :: !Int
+    , maxWaitTimeMS    :: !Int
       -- ^ Maximum waiting between a connection is made and a CONNECT
       -- message is received from the NATS server. If exceeded the
       -- connection is terminated and a new server selection is made.
+      -- The unit for the time is in milliseconds.
     
-    , serverSelect :: ([URI], Int) -> IO (URI, Int)
+    , serverSelect     :: ([URI], Int) -> IO (URI, Int)
       -- ^ A function to select one of the servers from the
       -- server pool. The arguments to the selector is the list of server
       -- uris and the current index. The reply is the chosen server and
       -- its index.
 
-    , connectedTo :: SockAddr -> IO ()
+    , connectedTo      :: SockAddr -> IO ()
       -- ^ Callback to inform that a connection is made to the NATS
-      -- server, with the 'SockAddr' for the server.
+      -- server, with the 'SockAddr' for the server. This callback is
+      -- made in the connection manager's thread, and the callback's
+      -- execution time must be minimized. 'Control.Concurrent.forkIO'
+      -- if longer execution times are needed.
 
     , disconnectedFrom :: SockAddr -> IO ()
       -- ^ Callback to inform that a disconnection to the NATS server
-      -- has happen. Give the 'SockAddr' for the server.
+      -- has happen. Give the 'SockAddr' for the server. This callback is
+      -- made in the connection manager's thread, and the callback's
+      -- execution time must be minimized. 'Control.Concurrent.forkIO'
+      -- if longer execution times are needed.
+
     }
 
 -- | Start the connection manager.
@@ -120,7 +127,7 @@ defaultManagerSettings :: ManagerSettings
 defaultManagerSettings =
     ManagerSettings
         { reconnectionAttempts = 5
-        , maxWaitTime          = 2
+        , maxWaitTimeMS        = 2000
         , serverSelect         = roundRobinSelect
         , connectedTo          = const (return ())
         , disconnectedFrom     = const (return ())
@@ -155,6 +162,10 @@ tryConnect :: ManagerSettings -> ManagerContext -> Int
 tryConnect _ _ 0 = error "No more attempts. Giving up."
 tryConnect mgr@ManagerSettings {..} ctx@ManagerContext {..} attempts = do
     (uri, uriIdx) <- serverSelect (uris, currUriIdx)
-    maybe (threadDelay 500000 >> tryConnect mgr ctx (attempts - 1))
+    maybe (tryConnect mgr ctx (attempts - 1))
           (\conn -> return (uriIdx, conn)) 
-              =<< makeConnection uri upstream downstream subscriberMap
+              =<< makeConnection (toUS maxWaitTimeMS) uri 
+                                 upstream downstream subscriberMap
+
+toUS :: Int -> Int
+toUS n = n * 1000

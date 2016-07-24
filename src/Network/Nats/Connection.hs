@@ -1,5 +1,13 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
+-- |
+-- Module:      Network.Nats.ConnectionManager
+-- Copyright:   (c) 2016 Patrik Sandahl
+-- License:     MIT
+-- Maintainer:  Patrik Sandahl <patrik.sandahl@gmail.com>
+-- Stability:   experimental
+-- Portability: portable
+--
 -- | Abstraction for a connection towards a NATS server. It owns the
 -- networking stuff and performs NATS handshaking necessary.
 module Network.Nats.Connection
@@ -11,41 +19,23 @@ module Network.Nats.Connection
     , waitForShutdown
     ) where
 
-import Control.Concurrent.Async ( Async
-                                , async
-                                , waitAnyCatchCancel
-                                )
-import Control.Exception ( SomeException
-                         , fromException
-                         , throwIO
-                         , handle
-                         )
-import Control.Monad (void)
+import Control.Concurrent.Async (Async, async, waitAnyCatchCancel)
+import Control.Exception (SomeException, fromException, throwIO, handle)
+import Control.Monad (void, when)
 import Data.Conduit (($$), (=$=))
 import Data.Conduit.Attoparsec (sinkParser)
 import Data.Conduit.List (sourceList)
-import Data.Maybe (fromJust)
-import Network.Socket ( AddrInfo (..)
-                      , HostName
-                      , PortNumber
-                      , SockAddr
-                      , defaultHints
-                      , getAddrInfo
+import Data.Maybe (fromJust, isNothing)
+import Network.Socket ( AddrInfo (..), HostName, PortNumber
+                      , SockAddr, defaultHints, getAddrInfo
                       )
-import Network.URI ( URI
-                   , uriAuthority
-                   , uriRegName
-                   , uriPort
-                   )
+import Network.URI (URI, uriAuthority, uriRegName, uriPort)
+import System.Timeout (timeout)
 
 import Network.Nats.Types (NatsException (..))
-import Network.Nats.Conduit ( Upstream
-                            , Downstream
-                            , connectionSource
-                            , connectionSink
-                            , streamSource
-                            , streamSink
-                            , messageChunker
+import Network.Nats.Conduit ( Upstream, Downstream, connectionSource
+                            , connectionSink, streamSource
+                            , streamSink, messageChunker
                             )
 import Network.Nats.Subscriber (SubscriberMap, subscribeMessages)
 import Network.Nats.Message.Message (Message (..))
@@ -54,6 +44,9 @@ import Network.Nats.Message.Writer (writeMessage)
 
 import qualified Data.ByteString.Lazy as LBS
 import qualified Network.Connection as NC
+
+-- | Type alias for a microsecond timeout.
+type Tmo = Int
 
 -- | Record representing an active connection towards the NATS server.
 data Connection = Connection
@@ -66,14 +59,14 @@ data Connection = Connection
 -- | Make a new 'Connection' as specified by the URI. Provide one
 -- 'Upstream' queue with data from the application to the server, and
 -- one 'Downstream' queue with data from the server to the application.
-makeConnection :: URI -> Upstream -> Downstream -> SubscriberMap 
+makeConnection :: Tmo -> URI -> Upstream -> Downstream -> SubscriberMap 
                -> IO (Maybe Connection)
-makeConnection uri fromApp toApp subscriberMap =
-    socketError `handle` (Just <$> makeConnection' uri fromApp 
-                                                   toApp subscriberMap)
+makeConnection tmo uri fromApp toApp subscriberMap =
+    connectionError `handle` (Just <$> makeConnection' tmo uri fromApp 
+                                                       toApp subscriberMap)
     where
-      socketError :: SomeException -> IO (Maybe Connection)
-      socketError e
+      connectionError :: SomeException -> IO (Maybe Connection)
+      connectionError e
         | isConnectionRefused e = return Nothing
         | isResolvError       e = return Nothing
         | otherwise             =
@@ -81,9 +74,9 @@ makeConnection uri fromApp toApp subscriberMap =
                 (Just HandshakeException) -> return Nothing
                 _                         -> throwIO e
             
-makeConnection' :: URI -> Upstream -> Downstream -> SubscriberMap
+makeConnection' :: Tmo -> URI -> Upstream -> Downstream -> SubscriberMap
                 -> IO Connection
-makeConnection' uri fromApp toApp subscriberMap = do
+makeConnection' tmo uri fromApp toApp subscriberMap = do
     let host = hostFromUri uri
         port = portFromUri uri
 
@@ -98,8 +91,15 @@ makeConnection' uri fromApp toApp subscriberMap = do
             }
 
     -- Perform the handshaking of 'Info' and 'Connect' messages between
-    -- the client and the server.
-    handshake uri conn =<< getSingleMessage conn
+    -- the client and the server. If the time to receive the 'Info'
+    -- message exceeds the timeout, there's a HandshakeException.
+    msg <- timeout tmo $ getSingleMessage conn
+    when (isNothing msg) $ do
+        NC.connectionClose conn
+        throwIO HandshakeException
+
+    -- Continue with the handshake.
+    handshake uri conn $ fromJust msg
 
     -- Fetch already made subscriptions for replay.
     msgs <- subscribeMessages subscriberMap
@@ -111,9 +111,11 @@ makeConnection' uri fromApp toApp subscriberMap = do
                             replaySubscriptions conn msgs
                             sendPipe fromApp conn)
 
+-- | Pipeline to run the 'Downstream' conduit.
 recvPipe :: NC.Connection -> Downstream -> IO ()
 recvPipe conn toApp = connectionSource conn $$ streamSink toApp
 
+-- | Pipeline to run the 'Upstream' conduit.
 sendPipe :: Upstream -> NC.Connection -> IO ()
 sendPipe fromApp conn = streamSource fromApp $$ connectionSink conn
 
