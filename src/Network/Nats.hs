@@ -31,7 +31,7 @@ module Network.Nats
     , QueueGroup
     , SubQueue
     , ManagerSettings (..)
-    , NatsException (URIError)
+    , NatsException (URIError, ConnectionGiveUpException)
     , SockAddr
     , withNats
     , publish

@@ -57,6 +57,10 @@ data NatsException
     -- ^ An exception caused by errors during the NATS connection
     -- handshake.
 
+    | ConnectionGiveUpException
+    -- ^ An exception thrown when all the configured connection
+    -- attempts are consumed.
+
     | URIError !String
     -- ^ An exception caused by invalid URI strings given to the
     -- 'Network.Nats.withNats' function.

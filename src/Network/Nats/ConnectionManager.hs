@@ -20,11 +20,11 @@ module Network.Nats.ConnectionManager
     , roundRobinSelect
     ) where
 
-import Control.Concurrent.Async (Async, async, cancel, waitCatch)
+import Control.Concurrent (ThreadId, forkIO, killThread)
 import Control.Concurrent.STM ( TVar, atomically, newTVarIO
                               , readTVarIO, writeTVar
                               )
-import Control.Monad (void)
+import Control.Exception (throwIO)
 import Network.URI (URI)
 import Network.Socket (SockAddr)
 import System.Random (randomRIO)
@@ -34,12 +34,13 @@ import Network.Nats.Connection ( Connection, Downstream
                                , clientShutdown, waitForShutdown, sockAddr
                                )
 import Network.Nats.Subscriber (SubscriberMap)
+import Network.Nats.Types (NatsException (..))
 
 -- | Resourced aquired by the connection manager. The record is
 -- opaque to the user.
 data ConnectionManager = ConnectionManager
     { connection    :: TVar (Maybe Connection)
-    , managerThread :: Async ()
+    , managerThread :: ThreadId
     }
 
 -- | Internal runtime context for the connection manager.
@@ -108,7 +109,7 @@ startConnectionManager settings upstream' downstream'
                                  , currConn      = conn
                                  }
     ConnectionManager <$> pure conn
-                      <*> async (managerLoop settings context)
+                      <*> forkIO (managerLoop settings context)
 
 -- | Stop the connection manager, clean up stuff.
 stopConnectionManager :: ConnectionManager -> IO ()
@@ -116,8 +117,7 @@ stopConnectionManager mgr = do
     -- The order when shutting down things is important. First the
     -- managerThread must be stopped (so it not tries to create new
     -- connections). Then the 'Connection' can be stopped.
-    cancel $ managerThread mgr
-    void $ waitCatch (managerThread mgr)
+    killThread $ managerThread mgr
 
     -- The 'Connection' is folded in 'Maybe'.
     mapM_ clientShutdown =<< readTVarIO (connection mgr)
@@ -159,7 +159,7 @@ managerLoop mgr@ManagerSettings {..} ctx@ManagerContext {..} = do
 -- | Select a server and connect.
 tryConnect :: ManagerSettings -> ManagerContext -> Int
             -> IO (Int, Connection)
-tryConnect _ _ 0 = error "No more attempts. Giving up."
+tryConnect _ _ 0 = throwIO ConnectionGiveUpException
 tryConnect mgr@ManagerSettings {..} ctx@ManagerContext {..} attempts = do
     (uri, uriIdx) <- serverSelect (uris, currUriIdx)
     maybe (tryConnect mgr ctx (attempts - 1))
