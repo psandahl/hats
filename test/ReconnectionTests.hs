@@ -1,9 +1,11 @@
 {-# LANGUAGE OverloadedStrings #-}
 module ReconnectionTests
     ( subscribeAndReconnect
+    , connectionGiveUp
     ) where
 
 import Control.Concurrent
+import Control.Exception
 import Control.Monad (when)
 import Data.Maybe (isNothing)
 import System.Timeout (timeout)
@@ -69,6 +71,16 @@ subscribeAndReconnect = do
 
 connected :: MVar () -> SockAddr -> IO ()
 connected sync _ = putMVar sync ()
+
+-- | Test that when the reconnection logic gives up, a
+-- ConnectionGiveUpException is thrown out of the withNats function.
+connectionGiveUp :: Assertion
+connectionGiveUp =
+    (\ConnectionGiveUpException -> return ()) `handle` do
+        withNats defaultManagerSettings [defaultURI] $ \_ ->
+            threadDelay oneSec
+
+        assertFailure "Shall never come here!"
 
 oneSec :: Int
 oneSec = 1000000

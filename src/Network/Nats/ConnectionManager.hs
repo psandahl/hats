@@ -20,11 +20,11 @@ module Network.Nats.ConnectionManager
     , roundRobinSelect
     ) where
 
-import Control.Concurrent (ThreadId, forkIO, killThread)
+import Control.Concurrent (ThreadId, forkIO, killThread, myThreadId)
 import Control.Concurrent.STM ( TVar, atomically, newTVarIO
                               , readTVarIO, writeTVar
                               )
-import Control.Exception (throwIO)
+import Control.Exception (handle, throwIO, throwTo)
 import Network.URI (URI)
 import Network.Socket (SockAddr)
 import System.Random (randomRIO)
@@ -51,6 +51,7 @@ data ManagerContext = ManagerContext
     , uris          :: ![URI]
     , currUriIdx    :: !Int
     , currConn      :: TVar (Maybe Connection)
+    , callerThread  :: !ThreadId
     }
 
 -- | A set of parameters to guide the behavior of the connection manager.
@@ -100,13 +101,15 @@ startConnectionManager settings upstream' downstream'
                        subscriberMap' uris' = do
     -- The transactional 'Connection' is shared between the 'ManagerContext'
     -- and the 'ConnectionManager'.
-    conn <- newTVarIO Nothing
+    conn   <- newTVarIO Nothing
+    caller <- myThreadId
     let context = ManagerContext { upstream      = upstream'
                                  , downstream    = downstream'
                                  , subscriberMap = subscriberMap'
                                  , uris          = uris'
                                  , currUriIdx    = -1
                                  , currConn      = conn
+                                 , callerThread  = caller
                                  }
     ConnectionManager <$> pure conn
                       <*> forkIO (managerLoop settings context)
@@ -147,14 +150,15 @@ roundRobinSelect (xs, currIdx)
 
 -- | Connect to a server and maintain the connection.
 managerLoop :: ManagerSettings -> ManagerContext -> IO ()
-managerLoop mgr@ManagerSettings {..} ctx@ManagerContext {..} = do
-    (newIdx, conn) <- tryConnect mgr ctx reconnectionAttempts
-    atomically $ writeTVar currConn (Just conn)
-    connectedTo $ sockAddr conn
-    waitForShutdown conn
-    atomically $ writeTVar currConn Nothing
-    disconnectedFrom $ sockAddr conn
-    managerLoop mgr $ ctx { currUriIdx = newIdx }
+managerLoop mgr@ManagerSettings {..} ctx@ManagerContext {..} = 
+    exceptionForward callerThread `handle` do
+        (newIdx, conn) <- tryConnect mgr ctx reconnectionAttempts
+        atomically $ writeTVar currConn (Just conn)
+        connectedTo $ sockAddr conn
+        waitForShutdown conn
+        atomically $ writeTVar currConn Nothing
+        disconnectedFrom $ sockAddr conn
+        managerLoop mgr $ ctx { currUriIdx = newIdx }
 
 -- | Select a server and connect.
 tryConnect :: ManagerSettings -> ManagerContext -> Int
@@ -166,6 +170,10 @@ tryConnect mgr@ManagerSettings {..} ctx@ManagerContext {..} attempts = do
           (\conn -> return (uriIdx, conn)) 
               =<< makeConnection (toUS maxWaitTimeMS) uri 
                                  upstream downstream subscriberMap
+
+-- | Throw 'NatsException's to the provided thread.
+exceptionForward :: ThreadId -> NatsException -> IO ()
+exceptionForward = throwTo
 
 toUS :: Int -> Int
 toUS n = n * 1000
