@@ -7,6 +7,7 @@ module JsonTests
 
 import Control.Monad (void)
 import Data.Aeson
+import Data.Maybe (fromJust)
 import Data.Text (Text)
 import GHC.Generics (Generic)
 import Test.HUnit
@@ -29,20 +30,20 @@ recSingleJsonMessage = withGnatsd recSingleJsonMessage'
 
 recSingleJsonMessage' =
     withNats defaultManagerSettings [defaultURI] $ \nats -> do
-        let topic   = "test"
-            payload = TestRec { textVal = "Some Text"
-                              , intVal  = 42
-                              }
+        let topic'   = "test"
+            payload' = TestRec { textVal = "Some Text"
+                               , intVal  = 42
+                               }
 
-        (sid, queue) <- subscribe nats topic Nothing
-        publishJson nats topic Nothing payload
+        (sid', queue) <- subscribe nats topic' Nothing
+        publishJson nats topic' Nothing payload'
 
         -- Wait for the response ...
-        JsonMsg topic' replyTo sid' (Just payload') <- nextJsonMsg queue
-        topic   @=? topic'
-        Nothing @=? replyTo
-        sid     @=? sid'
-        payload @=? payload'
+        msg <- nextMsg queue
+        topic'   @=? topic msg
+        Nothing  @=? replyTo msg
+        sid'     @=? sid msg
+        payload' @=? (fromJust $ jsonPayload msg)
 
 -- | Request a topic. Excersize both the requestJson api and the
 -- subscribeAsyncJson api, as the handler will modify the given Json
@@ -52,7 +53,7 @@ requestJsonMessage = withGnatsd requestJsonMessage'
 
 requestJsonMessage' =
     withNats defaultManagerSettings [defaultURI] $ \nats -> do
-        let topic    = "test"
+        let topic'   = "test"
             payload1 = TestRec { textVal = "Some Text"
                                , intVal  = 42
                                }
@@ -62,11 +63,12 @@ requestJsonMessage' =
        
         -- Async handler that receive a TestRec and increments its
         -- intVal field before sending it back.
-        void $ subscribeAsyncJson nats topic Nothing $
-            \(JsonMsg _ (Just replyTo) _ (Just payload)) -> do
-                let reply = payload { intVal = intVal payload + 1 }
-                publishJson nats replyTo Nothing reply
+        void $ subscribeAsync nats topic' Nothing $
+            \msg-> do
+                let p     = fromJust $ jsonPayload msg
+                    reply = p { intVal = intVal p + 1 }
+                publishJson nats (fromJust $ replyTo msg) Nothing reply
 
-        JsonMsg _ _ _ (Just reply) <- requestJson nats topic payload1
+        msg <- requestJson nats topic' payload1
 
-        payload2 @=? reply
+        payload2 @=? (fromJust $ jsonPayload msg)

@@ -36,13 +36,13 @@ import Network.Nats.Message.Parser (parseMessage)
 -- parser and to the core dispatcher.
 dispatcher :: Downstream -> Upstream -> SubscriberMap -> IO ()
 dispatcher downstream upstream subscriberMap =
-    streamSource downstream              =$= 
-        conduitParserEither parseMessage $$ 
+    streamSource downstream              =$=
+        conduitParserEither parseMessage $$
         messageSink upstream subscriberMap
 
 -- | The message 'Sink'. Forever receive messages, if there are
 -- parser error print those, otherwise just dispatch the message.
-messageSink :: Upstream -> SubscriberMap 
+messageSink :: Upstream -> SubscriberMap
             -> Sink (Either ParseError (PositionRange, Message)) IO ()
 messageSink upstream subscriberMap =
     awaitForever $
@@ -55,12 +55,12 @@ messageSink upstream subscriberMap =
 -- | Dispatch on 'M.Message. Handles 'MSG' and 'PING'.
 dispatchMessage :: Upstream -> SubscriberMap -> Message -> IO ()
 
--- Receive one 'MSG'. Lookup its 'Subscriber' and feed it with the 
+-- Receive one 'MSG'. Lookup its 'Subscriber' and feed it with the
 -- message. If no 'Subscriber' is found, the message is silently
 -- discarded.
 dispatchMessage _ subscriberMap (MSG topic sid replyTo payload) = do
     let msg = Msg topic replyTo sid payload
-    maybe (return ()) (feedSubscriber msg) =<< 
+    maybe (return ()) (feedSubscriber msg) =<<
         lookupSubscriber subscriberMap sid
 
 -- Handle 'PING' messages. Just reply with 'PONG'.

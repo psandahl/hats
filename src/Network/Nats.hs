@@ -23,8 +23,7 @@ module Network.Nats
     -- $wildcards
 
       Nats
-    , Msg (..)
-    , JsonMsg (..)
+    , Msg
     , Sid
     , Payload
     , Topic
@@ -38,12 +37,16 @@ module Network.Nats
     , publishJson
     , subscribe
     , subscribeAsync
-    , subscribeAsyncJson
     , request
     , requestJson
     , unsubscribe
     , nextMsg
-    , nextJsonMsg
+    , topic
+    , replyTo
+    , sid
+    , payload
+    , jsonPayload
+    , jsonPayload'
     , defaultManagerSettings
     ) where
 
@@ -59,12 +62,11 @@ import Network.Nats.ConnectionManager ( ManagerSettings (..)
                                       , SockAddr
                                       , defaultManagerSettings
                                       )
-import Network.Nats.JsonApi ( publishJson, requestJson
-                            , subscribeAsyncJson, nextJsonMsg
-                            )
+import Network.Nats.JsonApi (publishJson, requestJson)
 import Network.Nats.Subscriber (SubQueue)
-import Network.Nats.Types ( Msg (..), JsonMsg (..), Sid, Payload
-                          , Topic, QueueGroup, NatsException (..)
+import Network.Nats.Types ( Sid, Payload , Topic, QueueGroup
+                          , NatsException (..), Msg, topic, replyTo
+                          , sid, payload, jsonPayload, jsonPayload'
                           )
 
 -- | Run an IO action while connection towards NATS is maintained. If

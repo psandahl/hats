@@ -7,33 +7,30 @@
 -- Stability:   experimental
 -- Portability: portable
 --
--- Base types for the library's API.
+-- Base types for the library's API. JSON support is implemented
+-- with "Data.Aeson".
 module Network.Nats.Types
-    ( Msg (..)
-    , JsonMsg (..)
-    , Topic
+    ( Topic
     , Payload
     , Sid
     , QueueGroup
     , NatsException (..)
+    , Msg (..)
+    , topic
+    , replyTo
+    , sid
+    , payload
+    , jsonPayload
+    , jsonPayload'
     ) where
 
 import Control.Exception (Exception)
+import Data.Aeson (FromJSON, decode, decode')
 import Data.Typeable (Typeable)
 import GHC.Int (Int64)
 
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LBS
-
--- | A NATS message as received by the user.
-data Msg = Msg !Topic !(Maybe Topic) {-# UNPACK #-} !Sid !Payload
-    deriving (Eq, Show)
-
--- | A NATS message as received by the user, with payload encoded as
--- JSON. JSON handling is provided by "Data.Aeson".
-data JsonMsg a =
-    JsonMsg !Topic !(Maybe Topic) {-# UNPACK #-} !Sid !(Maybe a)
-    deriving (Eq, Show)
 
 -- | The type of a topic where to publish, or to subscribe on. Type
 -- alias for 'BS.ByteString'.
@@ -68,3 +65,42 @@ data NatsException
 
 instance Exception NatsException
 
+-- | A NATS message as received by the user. The message itself is
+-- opaque to the user, but the fields can be read by the API functions
+-- 'topic', 'replyTo', 'sid', 'payload', 'jsonPayload' and
+-- 'jsonPayload''
+data Msg = Msg !Topic !(Maybe Topic) {-# UNPACK #-} !Sid !Payload
+    deriving (Eq, Show)
+
+-- | Read the complete topic on which a message was received.
+topic :: Msg -> Topic
+topic (Msg t _ _ _) = t
+{-# INLINE topic #-}
+
+-- | Read the reply-to topic from a received message.
+replyTo :: Msg -> Maybe Topic
+replyTo (Msg _ r _ _) = r
+{-# INLINE replyTo #-}
+
+-- | Read the subscription id for the subscription on which this message
+-- was received.
+sid :: Msg -> Sid
+sid (Msg _ _ s _) = s
+{-# INLINE sid #-}
+
+-- | Read the raw payload from a received message.
+payload :: Msg -> Payload
+payload (Msg _ _ _ p) = p
+{-# INLINE payload #-}
+
+-- | Decode a message's payload as JSON. Is using 'decode' for
+-- the decoding.
+jsonPayload :: FromJSON a => Msg -> Maybe a
+jsonPayload = decode . payload
+{-# INLINE jsonPayload #-}
+
+-- | Decode a message's payload as JSON. Is using 'decode'' for
+-- the decoding.
+jsonPayload' :: FromJSON a => Msg -> Maybe a
+jsonPayload' = decode' . payload
+{-# INLINE jsonPayload' #-}

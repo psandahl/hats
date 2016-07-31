@@ -9,6 +9,7 @@ module NatsTests
 
 import Control.Concurrent.MVar
 import Control.Monad
+import Data.Maybe (fromJust)
 import System.Timeout (timeout)
 import Test.HUnit
 
@@ -22,19 +23,19 @@ recSingleMessage = withGnatsd recSingleMessage'
 
 recSingleMessage' =
     withNats defaultManagerSettings [defaultURI] $ \nats -> do
-        let topic   = "test"
-            replyTo = Nothing
-            payload = "test message"
+        let topic'   = "test"
+            replyTo' = Nothing
+            payload' = "test message"
 
-        (sid, queue) <- subscribe nats topic Nothing
-        publish nats topic replyTo payload
+        (sid', queue) <- subscribe nats topic' Nothing
+        publish nats topic' replyTo' payload'
 
         -- Wait for the message ...
-        Msg topic' replyTo' sid' payload' <- nextMsg queue
-        sid     @=? sid'
-        topic   @=? topic'
-        replyTo @=? replyTo'
-        payload @=? payload'
+        msg <- nextMsg queue
+        sid'     @=? sid msg
+        topic'   @=? topic msg
+        replyTo' @=? replyTo msg
+        payload' @=? payload msg
 
 -- Subscribe on a topic and receive one message asynchronously. Expect
 -- the message receiver to receive the expected 'Msg' data.
@@ -43,23 +44,22 @@ recSingleMessageAsync = withGnatsd recSingleMessageAsync'
 
 recSingleMessageAsync' =
     void $ withNats defaultManagerSettings [defaultURI] $ \nats -> do
-        let topic   = "test"
-            replyTo = Nothing
-            payload = "test message"
+        let topic'   = "test"
+            replyTo' = Nothing
+            payload' = "test message"
         recData <- newEmptyMVar
-        sid     <- subscribeAsync nats topic Nothing $ receiver recData
-        publish nats topic replyTo payload
+        sid'    <- subscribeAsync nats topic' Nothing $ receiver recData
+        publish nats topic' replyTo' payload'
 
         -- Wait for the MVar ...
-        (sid', topic', replyTo', payload') <- takeMVar recData
-        sid     @=? sid'
-        topic   @=? topic'
-        replyTo @=? replyTo'
-        payload @=? payload'
+        msg <- takeMVar recData
+        sid'     @=? sid msg
+        topic'   @=? topic msg
+        replyTo' @=? replyTo msg
+        payload' @=? payload msg
     where
-      receiver :: MVar (Sid, Topic, Maybe Topic, Payload) -> Msg -> IO ()
-      receiver recData (Msg topic replyTo sid payload) =
-          putMVar recData (sid, topic, replyTo, payload)
+      receiver :: MVar Msg -> Msg -> IO ()
+      receiver = putMVar
 
 -- | Subscribe to a topic, and send two messages to the topic. When
 -- reading trying to read a third message from the queue, it shall
@@ -69,26 +69,24 @@ recMessagesWithTmo = withGnatsd recMessagesWithTmo'
 
 recMessagesWithTmo' =
     void $ withNats defaultManagerSettings [defaultURI] $ \nats -> do
-        let topic    = "test"
+        let topic'   = "test"
             payload1 = "test message"
             payload2 = "test message 2"
 
-        (sid, queue) <- subscribe nats topic Nothing
-        publish nats topic Nothing payload1
-        publish nats topic Nothing payload2
+        (sid', queue) <- subscribe nats topic' Nothing
+        publish nats topic' Nothing payload1
+        publish nats topic' Nothing payload2
 
         -- Wait for the messages ...
-        Just (Msg topic' _ sid' payload1') <-
-            timeout oneSec $ nextMsg queue
-        sid      @=? sid'
-        topic    @=? topic'
-        payload1 @=? payload1'
+        Just msg1 <- timeout oneSec $ nextMsg queue
+        sid'     @=? sid msg1
+        topic'   @=? topic msg1
+        payload1 @=? payload msg1
 
-        Just (Msg topic'' _ sid'' payload2') <-
-            timeout oneSec $ nextMsg queue
-        sid      @=? sid''
-        topic    @=? topic''
-        payload2 @=? payload2'
+        Just msg2 <- timeout oneSec $ nextMsg queue
+        sid'     @=? sid msg2
+        topic'   @=? topic msg2
+        payload2 @=? payload msg2
 
         -- This time there shall be a timeout.
         reply <- timeout oneSec $ nextMsg queue
@@ -102,17 +100,17 @@ requestMessage = withGnatsd requestMessage'
 
 requestMessage' =
     withNats defaultManagerSettings [defaultURI] $ \nats -> do
-        let topic      = "test"
-            reqPayload = "echo me"
+        let topic'   = "test"
+            payload' = "echo me"
 
         -- Register a handler for serving the request.
-        void $ subscribeAsync nats topic Nothing $
-            \(Msg _ (Just replyTo) _ payload) ->
-                publish nats replyTo Nothing payload
+        void $ subscribeAsync nats topic' Nothing $
+            \msg -> publish nats (fromJust $ replyTo msg) 
+                            Nothing (payload msg)
 
         -- Make the request and compare the reply payload.
-        Msg _ _ _ reqPayload' <- request nats topic reqPayload
-        reqPayload @=? reqPayload'
+        msg <- request nats topic' payload'
+        payload' @=? payload msg
 
 -- | Subscribe to a topic, then unsubscribe to it before publishing
 -- a message. No message shall show up in the queue.
@@ -121,11 +119,11 @@ unsubscribeToTopic = withGnatsd unsubscribeToTopic'
 
 unsubscribeToTopic' =
     void $ withNats defaultManagerSettings [defaultURI] $ \nats -> do
-        let topic = "test"
+        let topic' = "test"
 
-        (sid, queue) <- subscribe nats topic Nothing
-        unsubscribe nats sid Nothing
-        publish nats topic Nothing "shall never arrive"
+        (sid', queue) <- subscribe nats topic' Nothing
+        unsubscribe nats sid' Nothing
+        publish nats topic' Nothing "shall never arrive"
 
         -- As the test case is unsubscribed, nothing shall show up.
         reply <- timeout oneSec $ nextMsg queue
