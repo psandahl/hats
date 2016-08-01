@@ -46,6 +46,14 @@ library
   ghc-options:         -Wall
   default-language:    Haskell2010
 
+executable hats-examples
+  hs-source-dirs:     example
+  main-is:            Examples.hs
+  build-depends:      base
+                    , hats
+  ghc-options:        -Wall
+  default-language:   Haskell2010
+
 test-suite hats-test
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
