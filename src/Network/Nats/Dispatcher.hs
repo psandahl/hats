@@ -9,12 +9,14 @@
 -- The dispatcher is receiving 'Downstream' messages from the NATS
 -- server and dispatches them to their receivers.
 module Network.Nats.Dispatcher
-    ( dispatcher
+    ( Dispatcher
+    , startDispatcher
+    , stopDispatcher
     ) where
 
-import Control.Concurrent (forkIO)
+import Control.Concurrent (ThreadId, forkIO, killThread, myThreadId)
 import Control.Concurrent.STM (atomically, writeTQueue)
-import Control.Exception (SomeException, handle)
+import Control.Exception (SomeException, handle, throwTo)
 import Control.Monad (void)
 import Control.Monad.IO.Class (liftIO)
 import Data.Conduit (Sink, ($$), (=$=), awaitForever)
@@ -28,47 +30,71 @@ import Network.Nats.Conduit ( Downstream, Upstream
 import Network.Nats.Subscriber ( Subscriber (..), SubscriberMap
                                , lookupSubscriber
                                )
-import Network.Nats.Types (Msg (..))
-import Network.Nats.Message.Message (Message (..))
+import Network.Nats.Types (Msg (..), NatsException (..))
+import Network.Nats.Message.Message (Message (..), ProtocolError (..))
 import Network.Nats.Message.Parser (parseMessage)
+
+-- | A data type to hold the 'ThreadId' for the dispatcher thread.
+newtype Dispatcher = Dispatcher ThreadId
+
+-- | Start the dispatcher thread. Give the dispatcher thread the callers
+-- 'ThreadId', and in this case it is assumed that the caller is the
+-- same thread as the caller of withNats. The caller thread is used in
+-- case an 'AuthorizationException' need to be thrown.
+startDispatcher :: Downstream -> Upstream -> SubscriberMap
+                -> IO Dispatcher
+startDispatcher downstream upstream subscriberMap = do
+    caller <- myThreadId
+    Dispatcher <$>
+        forkIO (dispatcher caller downstream upstream subscriberMap)
+
+-- | Kill the dispatcher thread.
+stopDispatcher :: Dispatcher -> IO ()
+stopDispatcher (Dispatcher t) = killThread t
 
 -- | The dispatcher pipeline from the 'Downstream', through the message
 -- parser and to the core dispatcher.
-dispatcher :: Downstream -> Upstream -> SubscriberMap -> IO ()
-dispatcher downstream upstream subscriberMap =
+dispatcher :: ThreadId -> Downstream -> Upstream -> SubscriberMap -> IO ()
+dispatcher caller downstream upstream subscriberMap =
     streamSource downstream              =$=
         conduitParserEither parseMessage $$
-        messageSink upstream subscriberMap
+        messageSink caller upstream subscriberMap
 
 -- | The message 'Sink'. Forever receive messages, if there are
 -- parser error print those, otherwise just dispatch the message.
-messageSink :: Upstream -> SubscriberMap
+messageSink :: ThreadId -> Upstream -> SubscriberMap
             -> Sink (Either ParseError (PositionRange, Message)) IO ()
-messageSink upstream subscriberMap =
+messageSink caller upstream subscriberMap =
     awaitForever $
         \eMsg -> case eMsg of
-            Right (_, msg) -> liftIO $ dispatchMessage upstream
+            Right (_, msg) -> liftIO $ dispatchMessage caller upstream
                                                        subscriberMap msg
             Left err       -> liftIO $ print err
 {-# INLINE messageSink #-}
 
 -- | Dispatch on 'M.Message. Handles 'MSG' and 'PING'.
-dispatchMessage :: Upstream -> SubscriberMap -> Message -> IO ()
+dispatchMessage :: ThreadId -> Upstream -> SubscriberMap -> Message -> IO ()
 
 -- Receive one 'MSG'. Lookup its 'Subscriber' and feed it with the
 -- message. If no 'Subscriber' is found, the message is silently
 -- discarded.
-dispatchMessage _ subscriberMap (MSG topic sid replyTo payload) = do
+dispatchMessage _ _ subscriberMap (MSG topic sid replyTo payload) = do
     let msg = Msg topic replyTo sid payload
     maybe (return ()) (feedSubscriber msg) =<<
         lookupSubscriber subscriberMap sid
 
 -- Handle 'PING' messages. Just reply with 'PONG'.
-dispatchMessage upstream _ PING = upstreamMessage upstream PONG
+dispatchMessage _ upstream _ PING = upstreamMessage upstream PONG
+
+-- Handle 'ERR' messages. If there are authorization violation, the
+-- dispatcher will throw. Other errors are just logged for now.
+dispatchMessage caller _ _ (ERR err)
+    | err == AuthorizationViolation = throwTo caller AuthorizationException
+    | otherwise                     = print err
 
 -- Other are messages this dispatcher doesn't care about. The 'INFO'
 -- message is handled by 'Connection' at connection handshake.
-dispatchMessage _ _ _ = return ()
+dispatchMessage _ _ _ _ = return ()
 {-# INLINE dispatchMessage #-}
 
 -- | Feed a 'Subscriber' with a 'Msg'.

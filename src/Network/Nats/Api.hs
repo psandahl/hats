@@ -21,7 +21,6 @@ module Network.Nats.Api
     , nextMsg
     ) where
 
-import Control.Concurrent.Async (Async, async)
 import Control.Concurrent.STM (atomically , newTQueueIO, readTQueue)
 import Control.Exception (bracket)
 
@@ -31,7 +30,7 @@ import Network.Nats.ConnectionManager ( ConnectionManager
                                       , startConnectionManager
                                       , stopConnectionManager
                                       )
-import Network.Nats.Dispatcher (dispatcher)
+import Network.Nats.Dispatcher (Dispatcher, startDispatcher, stopDispatcher)
 import Network.Nats.Types ( MsgQueue (..), Msg, Sid
                           , Topic, Payload, QueueGroup
                           )
@@ -62,8 +61,8 @@ data Nats = Nats
     , upstream          :: !Upstream
     -- ^ The stream of messages from the client to the NATS server.
 
-    , dispatcherThread  :: !(Async ())
-    -- ^ The message dispatcher thread.
+    , dispatcher        :: !Dispatcher
+    -- ^ The 'Dispatcher'.
     }
 
 -- | Setting up of all the necessary resources needed by 'Nats'.
@@ -77,19 +76,21 @@ initNats config uris = do
     manager           <- startConnectionManager config upstream' 
                                                 downstream' subscriberMap'
                                                 uris
-    dispatcherThread' <- async $ dispatcher downstream' upstream'
-                                            subscriberMap'
+    dispatcher'       <- startDispatcher downstream' 
+                                         upstream' subscriberMap'
 
     return Nats { subscriberMap     = subscriberMap'
                 , connectionManager = manager
                 , downstream        = downstream'
                 , upstream          = upstream'
-                , dispatcherThread  = dispatcherThread'
+                , dispatcher        = dispatcher'
                 }
 
 -- | Clean up 'Nats' resource. Used to clean up after 'initNats'.
 termNats :: Nats -> IO ()
-termNats nats = stopConnectionManager $ connectionManager nats
+termNats nats = do
+    stopDispatcher $ dispatcher nats
+    stopConnectionManager $ connectionManager nats
 
 -- | Publish some 'Payload' message to a 'Topic'. The NATS server will
 -- distribute the message to subscribers of the 'Topic'.

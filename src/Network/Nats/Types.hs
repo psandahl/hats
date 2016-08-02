@@ -54,11 +54,17 @@ type QueueGroup = BS.ByteString
 data NatsException
     = HandshakeException
     -- ^ An exception caused by errors during the NATS connection
-    -- handshake.
+    -- handshake. Will not popup on user level, only handled internally.
 
     | ConnectionGiveUpException
     -- ^ An exception thrown when all the configured connection
-    -- attempts are consumed.
+    -- attempts are consumed and the connection manager has been
+    -- given up.
+
+    | AuthorizationException
+    -- ^ The NATS server currently connected to has said that there are
+    -- authorization violations. Don't try to survive, just tell the user
+    -- that there are such errors.
 
     | URIError !String
     -- ^ An exception caused by invalid URI strings given to the
