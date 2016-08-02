@@ -24,6 +24,8 @@ main =
             ["queue-group"] -> queueGroup
             _               -> mapM_ putStrLn usage
     where
+      -- Take care of the exceptions that can be thrown out from within
+      -- 'withNats'.
       natsHandler :: NatsException -> IO ()
       natsHandler e =
         case e of

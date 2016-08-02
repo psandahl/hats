@@ -13,14 +13,17 @@ module Network.Nats
     -- * Limitations in implementation
     -- $limitations
 
-    -- * Basic usage of this library
-    -- $basic_usage
+    -- * Simple messaging example.
+    -- $simple_messaging
 
-    -- * Usage of JSON encoding
-    -- $json_usage
+    -- * Ascyncronous message handling.
+    -- $async_handling
 
-    -- * Wildcard subscriptions
-    -- $wildcards
+    -- * Convenience API for the request pattern.
+    -- $request_pattern
+
+    -- * Topic structure.
+    -- $topic_structure
 
       Nats
     , Msg
@@ -113,175 +116,147 @@ expectedScheme uri = uriScheme uri == "nats:" || uriScheme uri == "tls:"
 --
 -- The current version of this library does not yet support TLS.
 
--- $basic_usage
+-- $simple_messaging
 --
--- This section gives examples on basic usage of this library. The
+-- This section gives a simple messaging example using this library. The
 -- example requires the presence of a NATS server, running on localhost
 -- using the default port 4222. If other host or port, adapt the
 -- example.
 --
 -- > {-# LANGUAGE OverloadedStrings #-}
--- > module Main where
+-- > module Main
+-- >    ( main
+-- >    ) where
 -- >
--- > import Control.Monad
 -- > import Network.Nats
 -- > import Text.Printf
 -- >
 -- > main :: IO ()
 -- > main =
--- >   -- The connection will close when the action has finished.
--- >   withNats defaultManagerSettings ["nats://localhost"] $ \nats -> do
+-- >    withNats defaultManagerSettings ["nats://localhost"] $ \nats -> do
 -- >
--- >       -- Simple publisher.
--- >       publish nats "foo" Nothing "Hello world"
+-- >        -- Subscribe to the topic "foo".
+-- >        (s, q) <- subscribe nats "foo" Nothing
 -- >
--- >       -- Simple async subscriber.
--- >       void $ subscribeAsync nats "foo" Nothing $
--- >           \(Msg _ _ _ payload) ->
--- >               printf "(Async) Received a message: %s\n" (show payload)
+-- >        -- Publish to topic "foo", do not request a reply.
+-- >        publish nats "foo" Nothing "Some payload"
 -- >
--- >       -- | Simple sync subscriber.
--- >       (sid, queue) <- subscribe nats "foo" Nothing
--- >       Msg _ _ _ payload <- nextMsg queue
+-- >        -- Wait for a message, print the message's payload
+-- >        msg <- nextMsg q
+-- >        printf "Received %s\n" (show $ payload msg)
 -- >
--- >       -- Wait for the async handler's printout. Then press a key.
--- >       void $ getChar
--- >
--- >       printf "(Sync) Received a message: %s\n" (show payload)
--- >
--- >       -- Unsubscribe.
--- >       unsubscribe nats sid Nothing
--- >
--- >       -- Replies (to the below request).
--- >       void $ subscribeAsync nats "help" Nothing $
--- >           \(Msg _ (Just reply) _ _) ->
--- >               publish nats reply Nothing "I can help"
--- >
--- >       -- Request.
--- >       (Msg _ _ _ response) <- request nats "help" "Help me"
--- >       printf "(Req) Received a message: %s\n" (show response)
--- >
--- >       -- Press a key to terminate program.
--- >       void $ getChar
-
--- $json_usage
+-- >        -- Unsubscribe from topic "foo".
+-- >        unsubscribe nats s Nothing
 --
--- There are built-in support for JSON encoded message payloads. The
--- JSON support is using "Data.Aeson".
+-- $async_handling
 --
--- This example show both a requester and a subscriber use JSON as
--- message payload. The toy example implements a service which
--- randomly generates a person, given the gender specification of
--- female or male.
---
--- The examples require the libraries "Data.Aeson", "Data.Text" and
--- "System.Random" to be installed.
---
--- > {-# LANGUAGE DeriveGeneric     #-}
--- > {-# LANGUAGE OverloadedStrings #-}
--- > module Main where
--- >
--- > import Control.Monad
--- > import Data.Aeson
--- > import Data.Text (Text)
--- > import GHC.Generics
--- > import Network.Nats
--- > import System.Random
--- > import Text.Printf
--- >
--- > data Gender = Female | Male
--- >    deriving (Eq, Generic, Show)
--- >
--- > data GenderSpec = GenderSpec
--- >    { gender :: !Gender }
--- >    deriving (Generic, Show)
--- >
--- > data Person = Person
--- >     { firstName :: !Text
--- >     , surname   :: !Text
--- >     , age       :: !Int
--- >     } deriving (Generic, Show)
--- >
--- > instance FromJSON Gender
--- > instance ToJSON Gender
--- > instance FromJSON GenderSpec
--- > instance ToJSON GenderSpec
--- > instance FromJSON Person
--- > instance ToJSON Person
--- >
--- > main :: IO ()
--- > main =
--- >     withNats defaultManagerSettings ["nats://localhost"] $ \nats -> do
--- >
--- >         -- Simple service that generates a random person from
--- >         -- a gender spec.
--- >         void $ subscribeAsyncJson nats "person" Nothing $
--- >             \(JsonMsg _ (Just reply) _ (Just spec)) ->
--- >                 publishJson nats reply Nothing =<< randomPerson spec
--- >
--- >         -- Request a female.
--- >         JsonMsg _ _ _ (Just resp)
--- >             <- requestJson nats "person" $ GenderSpec Female
--- >
--- >         printf "Received: %s\n" (showPerson resp)
--- >
--- >         -- And a male.
--- >         JsonMsg _ _ _ (Just resp')
--- >             <- requestJson nats "person" $ GenderSpec Male
--- >
--- >         printf "Received: %s\n" (showPerson resp')
--- >
--- > showPerson :: Person -> String
--- > showPerson = show
--- >
--- > randomPerson :: GenderSpec -> IO Person
--- > randomPerson spec
--- >     | gender spec == Female = Person <$> randomFrom females
--- >                                      <*> randomFrom surnames
--- >                                      <*> randomFrom [1..99]
--- >     | otherwise             = Person <$> randomFrom males
--- >                                      <*> randomFrom surnames
--- >                                      <*> randomFrom [1..99]
--- >
--- > males :: [Text]
--- > males = ["Curt", "David", "James", "Edward", "Karl"]
--- >
--- > females :: [Text]
--- > females = ["Claire", "Eva", "Sara", "Monica", "Lisa"]
--- >
--- > surnames :: [Text]
--- > surnames = ["Andersson", "Smith", "von Helsing", "Burns", "Baker"]
--- >
--- > randomFrom :: [a] -> IO a
--- > randomFrom xs = (!!) xs <$> randomRIO (0, length xs - 1)
-
--- $wildcards
---
--- When subscribing one can use wildcards to match variable parts of
--- a topic.
+-- Beside from the subscription mode where messages, synchronously, are
+-- fetched from a queue there is also an asynchronous mode where each
+-- request is handled immediately in their own thread.
 --
 -- > {-# LANGUAGE OverloadedStrings #-}
--- > module Main where
+-- > module Main
+-- >    ( main
+-- >    ) where
 -- >
 -- > import Control.Monad
+-- > import Data.Maybe
 -- > import Network.Nats
 -- > import Text.Printf
 -- >
 -- > main :: IO ()
 -- > main =
--- >     withNats defaultManagerSettings ["nats://localhost"] $ \nats -> do
+-- >    withNats defaultManagerSettings ["nats://localhost"] $ \nats -> do
+-- >       
+-- >        -- A simple - asynchronous - help service that will answer
+-- >        -- requesters that give a reply topic with "I can help".
+-- >        s1 <- subscribeAsync nats "help" Nothing $ \msg -> do
+-- >            printf "Help service received: %s\n" (show $ payload msg)
+-- >            when (isJust $ replyTo msg) $
+-- >                publish nats (fromJust $ replyTo msg) Nothing "I can help"
 -- >
--- >         -- "*" matches any token, at any level of the subject.
--- >         (_, queue1) <- subscribe nats "foo.*.baz" Nothing
--- >         (_, queue2) <- subscribe nats "foo.bar.*" Nothing
+-- >        -- Subscribe to help replies.
+-- >        (s2, q) <- subscribe nats "help.reply" Nothing
 -- >
--- >         -- ">" matches any length of the tail of the subject, and can
--- >         -- only be the last token.
--- >         (_, queue3) <- subscribe nats "foo.>" Nothing
+-- >        -- Request help.
+-- >        publish nats "help" (Just "help.reply") "Please ..."
 -- >
--- >         -- This publishing matches all the above.
--- >         publish nats "foo.bar.baz" Nothing "Hello world"
+-- >        -- Wait for reply.
+-- >        msg <- nextMsg q
+-- >        printf "Received: %s\n" (show $ payload msg)
 -- >
--- >         forM_ [queue1, queue2, queue3] $ \queue -> do
--- >             Msg _ _ _ payload <- nextMsg queue
--- >             printf "Received: %s\n" (show payload)
+-- >        -- Unsubscribe.
+-- >        unsubscribe nats s1 Nothing
+-- >        unsubscribe nats s2 Nothing
+--
+-- $request_pattern
+--
+-- In the example above there's a common request pattern. Sending a
+-- message to a topic, requesting a reply, subscribing to the reply topic,
+-- receiving the reply message and then unsubscribe from the reply topic.
+--
+-- This pattern can be handled more simply using the 'request' function.
+--
+-- > {-# LANGUAGE OverloadedStrings #-}
+-- > module Main
+-- >    ( main
+-- >    ) where
+-- >
+-- > import Control.Monad
+-- > import Data.Maybe
+-- > import Network.Nats
+-- > import Text.Printf
+-- >
+-- > main :: IO ()
+-- > main =
+-- >    withNats defaultManagerSettings ["nats://localhost"] $ \nats -> do
+-- > 
+-- >        -- A simple - asynchronous - help service that will answer
+-- >        -- requesters that give a reply topic with "I can help".
+-- >        s <- subscribeAsync nats "help" Nothing $ \msg -> do
+-- >            printf "Help service received: %s\n" (show $ payload msg)
+-- >            when (isJust $ replyTo msg) $
+-- >                publish nats (fromJust $ replyTo msg) Nothing "I can help"
+-- >
+-- >        -- Request help.
+-- >        msg <- request nats "help" "Please ..."
+-- >        printf "Received: %s\n" (show $ payload msg)
+-- >
+-- >        -- Unsubscribing the help service only.
+-- >        unsubscribe nats s Nothing
+--
+-- $topic_structure
+--
+-- Topic structure is tree like similar to file systems, or the Haskell
+-- module structure, and components in the tree is separated by dots.
+-- A subscriber of a topic can use wildcards to specify patterns.
+--
+-- > {-# LANGUAGE OverloadedStrings #-}
+-- > module Main
+-- >    ( main
+-- >    ) where
+-- >
+-- > import Control.Monad
+-- > import Data.Maybe
+-- > import Network.Nats
+-- > import Text.Printf
+-- >
+-- > main :: IO ()
+-- > main =
+-- >    withNats defaultManagerSettings ["nats://localhost"] $ \nats -> do
+-- > 
+-- >        -- "*" matches any token, at any level of the subject.
+-- >        (_, queue1) <- subscribe nats "foo.*.baz" Nothing
+-- >        (_, queue2) <- subscribe nats "foo.bar.*" Nothing
+-- >
+-- >        -- ">" matches any length of the tail of the subject, and can
+-- >        -- only be the last token.
+-- >        (_, queue3) <- subscribe nats "foo.>" Nothing
+-- >
+-- >        -- This publishing matches all the above.
+-- >        publish nats "foo.bar.baz" Nothing "Hello world"
+-- >
+-- >        -- Show that the message showed up on all queues.
+-- >        forM_ [queue1, queue2, queue3] $ \queue -> do
+-- >            msg <- nextMsg queue
+-- >            printf "Received: %s\n" (show $ payload msg)
