@@ -5,30 +5,14 @@ module Main
 
 import Control.Monad (replicateM_, void)
 import Control.Concurrent.Async (async, wait)
-import Control.Concurrent.STM ( STM
-                              , TVar
-                              , atomically
-                              , modifyTVar
-                              , newTVarIO
-                              , readTVar
-                              , retry
+import Control.Concurrent.STM ( STM, TVar, atomically, modifyTVar
+                              , newTVarIO, readTVar, retry
                               )
-import Criterion.Main ( Benchmark
-                      , defaultMain
-                      , bgroup
-                      , bench
-                      , env
-                      , nf
-                      , whnfIO
+import Criterion.Main ( Benchmark, defaultMain, bgroup, bench
+                      , env, nf, whnfIO
                       )
-import Data.Attoparsec.ByteString.Char8 ( IResult (..)
-                                        , Result
-                                        , parse
-                                        )
-import Data.ByteString.Lazy.Builder ( lazyByteString
-                                    , toLazyByteString
-                                    )
-
+import Data.Attoparsec.ByteString.Char8 (IResult (..), Result, parse)
+import Data.ByteString.Lazy.Builder (lazyByteString, toLazyByteString)
 
 import Network.Nats
 import Network.Nats.Message.Message (Message (..))
@@ -99,7 +83,7 @@ pubSubPerf rep =
         replicateM_ rep $ publish nats "bench" Nothing "hello"
         wait rec
 
-receiver :: SubQueue -> Int -> IO ()
+receiver :: MsgQueue -> Int -> IO ()
 receiver queue limit = go 0
     where
       go :: Int -> IO ()

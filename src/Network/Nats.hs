@@ -31,7 +31,7 @@ module Network.Nats
     , Payload
     , Topic
     , QueueGroup
-    , SubQueue
+    , MsgQueue
     , ManagerSettings (..)
     , NatsException (URIError, ConnectionGiveUpException)
     , SockAddr
@@ -66,9 +66,9 @@ import Network.Nats.ConnectionManager ( ManagerSettings (..)
                                       , defaultManagerSettings
                                       )
 import Network.Nats.JsonApi (publishJson, requestJson)
-import Network.Nats.Subscriber (SubQueue)
 import Network.Nats.Types ( Sid, Payload , Topic, QueueGroup
-                          , NatsException (..), Msg, topic, replyTo
+                          , NatsException (..), MsgQueue
+                          , Msg, topic, replyTo
                           , sid, payload, jsonPayload, jsonPayload'
                           )
 

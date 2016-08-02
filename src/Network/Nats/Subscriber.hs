@@ -10,7 +10,6 @@
 module Network.Nats.Subscriber
     ( SubscriberMap
     , Subscriber (..)
-    , SubQueue (..)
     , newSubscriberMap
     , addSubscriber
     , addAsyncSubscriber
@@ -19,7 +18,7 @@ module Network.Nats.Subscriber
     , subscribeMessages
     ) where
 
-import Network.Nats.Types (Msg, Sid)
+import Network.Nats.Types (MsgQueue (..), Msg, Sid)
 import Network.Nats.Message.Message (Message (..))
 
 import Control.Concurrent.STM ( TQueue, TVar, atomically, newTVarIO
@@ -43,25 +42,22 @@ data Subscriber
     -- ^ An asynchronous subscriber, with an IO action taking a
     -- 'Msg'.
 
--- | A subscriber queue, a queue of 'Msg' handled by a 'TQueue'.
-newtype SubQueue = SubQueue (TQueue Msg)
-
 -- | Create a new empty 'SubscriberMap'.
 newSubscriberMap :: IO SubscriberMap
 newSubscriberMap = newTVarIO HM.empty
 
 -- | Add a new subscriber to the 'SubscriberMap'.
-addSubscriber :: SubscriberMap -> Sid -> Message -> IO SubQueue
+addSubscriber :: SubscriberMap -> Sid -> Message -> IO MsgQueue
 addSubscriber subscriberMap sid msg = do
     queue <- newTQueueIO
     let sub = Subscriber queue msg
     atomically $ modifyTVar subscriberMap $ HM.insert sid sub
-    return $ SubQueue queue
+    return $ MsgQueue queue
 {-# INLINE addSubscriber #-}
 
 -- | Add a new, asynchronous, subscriber to the 'SubscriberMap'.
 addAsyncSubscriber :: SubscriberMap -> Sid -> Message
-                     -> (Msg -> IO ()) -> IO ()
+                   -> (Msg -> IO ()) -> IO ()
 addAsyncSubscriber subscriberMap sid msg action = do
     let sub = AsyncSubscriber action msg
     atomically $ modifyTVar subscriberMap $ HM.insert sid sub

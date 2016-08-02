@@ -32,10 +32,12 @@ import Network.Nats.ConnectionManager ( ConnectionManager
                                       , stopConnectionManager
                                       )
 import Network.Nats.Dispatcher (dispatcher)
-import Network.Nats.Types (Msg, Sid, Topic, Payload, QueueGroup)
-import Network.Nats.Subscriber ( SubscriberMap, SubQueue (..)
-                               , newSubscriberMap, addSubscriber
-                               , addAsyncSubscriber, removeSubscriber
+import Network.Nats.Types ( MsgQueue (..), Msg, Sid
+                          , Topic, Payload, QueueGroup
+                          )
+import Network.Nats.Subscriber ( SubscriberMap, newSubscriberMap
+                               , addSubscriber, addAsyncSubscriber
+                               , removeSubscriber
                                )
 import Network.Nats.Message.Message (Message (..))
 
@@ -114,7 +116,7 @@ publish nats topic replyTo payload =
 -- Or
 --
 -- > (sid, queue) <- subscribe nats "do.stuff" (Just "stuffworkers")
-subscribe :: Nats -> Topic -> Maybe QueueGroup -> IO (Sid, SubQueue)
+subscribe :: Nats -> Topic -> Maybe QueueGroup -> IO (Sid, MsgQueue)
 subscribe nats topic queueGroup = do
     sid <- newSid
     let msg = SUB topic queueGroup sid
@@ -191,8 +193,8 @@ unsubscribe nats sid limit = do
 -- Or
 --
 -- > maybeMsg <- timeout tmo $ nextMsg queue
-nextMsg :: SubQueue -> IO Msg
-nextMsg (SubQueue queue) = atomically $ readTQueue queue
+nextMsg :: MsgQueue -> IO Msg
+nextMsg (MsgQueue queue) = atomically $ readTQueue queue
 {-# INLINE nextMsg #-}
 
 newSid :: IO Sid

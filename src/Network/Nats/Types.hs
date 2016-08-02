@@ -15,6 +15,7 @@ module Network.Nats.Types
     , Sid
     , QueueGroup
     , NatsException (..)
+    , MsgQueue (..)
     , Msg (..)
     , topic
     , replyTo
@@ -24,6 +25,7 @@ module Network.Nats.Types
     , jsonPayload'
     ) where
 
+import Control.Concurrent.STM (TQueue)
 import Control.Exception (Exception)
 import Data.Aeson (FromJSON, decode, decode')
 import Data.Typeable (Typeable)
@@ -64,6 +66,9 @@ data NatsException
     deriving (Typeable, Show)
 
 instance Exception NatsException
+
+-- | A message queue, a queue of 'Msg's handled by a 'TQueue'.
+newtype MsgQueue = MsgQueue (TQueue Msg)
 
 -- | A NATS message as received by the user. The message itself is
 -- opaque to the user, but the fields can be read by the API functions
