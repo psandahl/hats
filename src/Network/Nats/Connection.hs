@@ -25,11 +25,12 @@ import Control.Monad (void, when)
 import Data.Conduit (($$), (=$=))
 import Data.Conduit.Attoparsec (sinkParser)
 import Data.Conduit.List (sourceList)
+import Data.List
 import Data.Maybe (fromJust, isNothing)
 import Network.Socket ( AddrInfo (..), HostName, PortNumber
                       , SockAddr, defaultHints, getAddrInfo
                       )
-import Network.URI (URI, uriAuthority, uriRegName, uriPort)
+import Network.URI (URI, uriAuthority, uriRegName, uriPort, uriUserInfo)
 import System.Timeout (timeout)
 
 import Network.Nats.Types (NatsException (..))
@@ -42,6 +43,7 @@ import Network.Nats.Message.Message (Message (..))
 import Network.Nats.Message.Parser (parseMessage)
 import Network.Nats.Message.Writer (writeMessage)
 
+import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Lazy as LBS
 import qualified Network.Connection as NC
 
@@ -139,15 +141,16 @@ waitForShutdown conn = do
     NC.connectionClose $ connection conn
 
 -- | Perform the handshake.
--- TODO: More handshaking, user, password, tls, tokens etc.
+-- TODO: More handshaking, tls, tokens etc.
 handshake :: URI -> NC.Connection -> Message -> IO ()
-handshake _uri conn INFO {..} = do
-    let connect = CONNECT { clientVerbose     = Just False
+handshake uri conn INFO {..} = do
+    let (user, pass) = credentialsFromUri uri
+        connect = CONNECT { clientVerbose     = Just False
                           , clientPedantic    = Just False
                           , clientSslRequired = Just False
                           , clientAuthToken   = Nothing
-                          , clientUser        = Nothing
-                          , clientPass        = Nothing
+                          , clientUser        = user
+                          , clientPass        = pass
                           , clientName        = Just "hats"
                           , clientLang        = Just "Haskell"
                           , clientVersion     = Just "0.1.0.0"
@@ -164,6 +167,13 @@ hostFromUri = uriRegName . fromJust . uriAuthority
 portFromUri :: URI -> PortNumber
 portFromUri = fromIntegral . extractPort . uriPort . fromJust . uriAuthority
 
+-- | Extract credentials (if any) from the 'URI'.
+credentialsFromUri :: URI -> (Maybe BS.ByteString, Maybe BS.ByteString)
+credentialsFromUri = 
+    toBS . extractCredentials . uriUserInfo. fromJust . uriAuthority
+    where
+      toBS (user, pass) = (BS.pack <$> user, BS.pack <$> pass)
+
 -- | Resolve a 'HostName' and a 'PortNumber' to a 'SockAddr'.
 toSockAddr :: HostName -> PortNumber -> IO SockAddr
 toSockAddr host port =
@@ -178,6 +188,19 @@ extractPort []        = 4222
 extractPort ":"       = 4222
 extractPort (':':str) = read str
 extractPort _         = error "This is no valid port, ehh?"
+
+-- | Extract the credentials from a String.
+extractCredentials :: String -> (Maybe String, Maybe String)
+extractCredentials "" = (Nothing, Nothing)
+extractCredentials str =
+    let str'  = takeWhile (/= '@') str
+        colon = elemIndex ':' str'
+    in
+        if isNothing colon
+            then (Just str', Nothing)
+            else
+                let (user, _:pass) = splitAt (fromJust colon) str'
+                in (Just user, Just pass)
 
 -- | Awkward, but this is how to check for connection refuse.
 isConnectionRefused :: SomeException -> Bool
