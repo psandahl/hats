@@ -116,8 +116,12 @@ expectedScheme uri = uriScheme uri == "nats:" || uriScheme uri == "tls:"
 
 -- $limitations
 --
--- The current version of this library does not yet support TLS.
-
+-- 1) The current version of this library does not yet support TLS.
+--
+-- 2) The current version of this library does not yet support 
+-- authorization tokens (but support user names and passwords
+-- in the URI strings).
+--
 -- $simple_messaging
 --
 -- This section gives a simple messaging example using this library. The

@@ -30,6 +30,7 @@ main =
       natsHandler e =
         case e of
             ConnectionGiveUpException -> putStrLn "No NATS connection!"
+            AuthorizationException    -> putStrLn "Can't authorize!"
             URIError err              -> putStrLn err
             _                         -> throwIO e
 
