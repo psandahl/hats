@@ -15,7 +15,7 @@ module Network.Nats.ConnectionManager
     , SockAddr
     , startConnectionManager
     , stopConnectionManager
-    , defaultManagerSettings
+    , defaultSettings
     , randomSelect
     , roundRobinSelect
     ) where
@@ -56,7 +56,7 @@ data ManagerContext = ManagerContext
 
 -- | A set of parameters to guide the behavior of the connection manager.
 -- A default set of parameters can be obtained by calling
--- 'defaultManagerSettings'.
+-- 'defaultSettings'.
 data ManagerSettings = ManagerSettings
     { reconnectionAttempts :: !Int
       -- ^ The number of times the connection manager shall try to
@@ -126,8 +126,8 @@ stopConnectionManager mgr = do
     mapM_ clientShutdown =<< readTVarIO (connection mgr)
 
 -- | Create a default 'ManagerSettings'.
-defaultManagerSettings :: ManagerSettings
-defaultManagerSettings =
+defaultSettings :: ManagerSettings
+defaultSettings =
     ManagerSettings
         { reconnectionAttempts = 5
         , maxWaitTimeMS        = 2000

@@ -22,7 +22,7 @@ recSingleMessage, recSingleMessage' :: Assertion
 recSingleMessage = withGnatsd recSingleMessage'
 
 recSingleMessage' =
-    withNats defaultManagerSettings [defaultURI] $ \nats -> do
+    withNats defaultSettings [defaultURI] $ \nats -> do
         let topic'   = "test"
             replyTo' = Nothing
             payload' = "test message"
@@ -43,7 +43,7 @@ recSingleMessageAsync, recSingleMessageAsync' :: Assertion
 recSingleMessageAsync = withGnatsd recSingleMessageAsync'
 
 recSingleMessageAsync' =
-    void $ withNats defaultManagerSettings [defaultURI] $ \nats -> do
+    void $ withNats defaultSettings [defaultURI] $ \nats -> do
         let topic'   = "test"
             replyTo' = Nothing
             payload' = "test message"
@@ -68,7 +68,7 @@ recMessagesWithTmo, recMessagesWithTmo' :: Assertion
 recMessagesWithTmo = withGnatsd recMessagesWithTmo'
 
 recMessagesWithTmo' =
-    void $ withNats defaultManagerSettings [defaultURI] $ \nats -> do
+    void $ withNats defaultSettings [defaultURI] $ \nats -> do
         let topic'   = "test"
             payload1 = "test message"
             payload2 = "test message 2"
@@ -99,7 +99,7 @@ requestMessage, requestMessage' :: Assertion
 requestMessage = withGnatsd requestMessage'
 
 requestMessage' =
-    withNats defaultManagerSettings [defaultURI] $ \nats -> do
+    withNats defaultSettings [defaultURI] $ \nats -> do
         let topic'   = "test"
             payload' = "echo me"
 
@@ -118,7 +118,7 @@ unsubscribeToTopic, unsubscribeToTopic' :: Assertion
 unsubscribeToTopic = withGnatsd unsubscribeToTopic'
 
 unsubscribeToTopic' =
-    void $ withNats defaultManagerSettings [defaultURI] $ \nats -> do
+    void $ withNats defaultSettings [defaultURI] $ \nats -> do
         let topic' = "test"
 
         (sid', queue) <- subscribe nats topic' Nothing

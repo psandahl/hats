@@ -22,7 +22,7 @@ import Network.Nats
 subscribeAndReconnect :: Assertion
 subscribeAndReconnect = do
     connect <- newEmptyMVar
-    let settings = defaultManagerSettings
+    let settings = defaultSettings
                        { connectedTo = connected connect
                        }
     g1 <- startGnatsd
@@ -79,7 +79,7 @@ connected sync _ = putMVar sync ()
 connectionGiveUp :: Assertion
 connectionGiveUp =
     (\ConnectionGiveUpException -> return ()) `handle` do
-        withNats defaultManagerSettings [defaultURI] $ \_ ->
+        withNats defaultSettings [defaultURI] $ \_ ->
             threadDelay oneSec
 
         assertFailure "Shall never come here!"
@@ -92,7 +92,7 @@ authorizationFail = withGnatsdUP authorizationFail'
 authorizationFail' :: Assertion
 authorizationFail' =
     (\AuthorizationException -> return ()) `handle` do
-        withNats defaultManagerSettings [defaultURI] $ \_ ->
+        withNats defaultSettings [defaultURI] $ \_ ->
             threadDelay oneSec
 
         assertFailure "Shall never come here!"
@@ -104,7 +104,7 @@ authorizationSuccess = withGnatsdUP authorizationSuccess'
 
 authorizationSuccess' :: Assertion
 authorizationSuccess' =
-    withNats defaultManagerSettings [userPasswordURI] $ \_ ->
+    withNats defaultSettings [userPasswordURI] $ \_ ->
         threadDelay oneSec
 
 oneSec :: Int

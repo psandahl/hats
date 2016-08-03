@@ -29,7 +29,7 @@ recSingleJsonMessage, recSingleJsonMessage' :: Assertion
 recSingleJsonMessage = withGnatsd recSingleJsonMessage'
 
 recSingleJsonMessage' =
-    withNats defaultManagerSettings [defaultURI] $ \nats -> do
+    withNats defaultSettings [defaultURI] $ \nats -> do
         let topic'   = "test"
             payload' = TestRec { textVal = "Some Text"
                                , intVal  = 42
@@ -52,7 +52,7 @@ requestJsonMessage, requestJsonMessage' :: Assertion
 requestJsonMessage = withGnatsd requestJsonMessage'
 
 requestJsonMessage' =
-    withNats defaultManagerSettings [defaultURI] $ \nats -> do
+    withNats defaultSettings [defaultURI] $ \nats -> do
         let topic'   = "test"
             payload1 = TestRec { textVal = "Some Text"
                                , intVal  = 42

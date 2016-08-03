@@ -17,7 +17,7 @@ callingCallbacks :: Assertion
 callingCallbacks = do
     connect    <- newEmptyMVar
     disconnect <- newEmptyMVar
-    let settings = defaultManagerSettings
+    let settings = defaultSettings
                        { connectedTo      = connected connect
                        , disconnectedFrom = disconnected disconnect
                        }

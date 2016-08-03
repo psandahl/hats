@@ -52,7 +52,7 @@ module Network.Nats
     , payload
     , jsonPayload
     , jsonPayload'
-    , defaultManagerSettings
+    , defaultSettings
     ) where
 
 import Control.Exception (bracket, throwIO)
@@ -65,7 +65,7 @@ import Network.Nats.Api ( Nats, publish, subscribe, subscribeAsync
                         )
 import Network.Nats.ConnectionManager ( ManagerSettings (..)
                                       , SockAddr
-                                      , defaultManagerSettings
+                                      , defaultSettings
                                       )
 import Network.Nats.JsonApi (publishJson, requestJson)
 import Network.Nats.Types ( Sid, Payload , Topic, QueueGroup
@@ -84,7 +84,7 @@ import Network.Nats.Types ( Sid, Payload , Topic, QueueGroup
 withNats :: ManagerSettings
             -- ^ Settings for the connection manager. Default
             -- 'ManagerSettings' can be obtained by
-            -- 'defaultManagerSettings'.
+            -- 'defaultSettings'.
          -> [String]
             -- ^ A list of URI strings to specify the NATS servers
             -- available. If any URI string is malformed an 'URIError'
@@ -139,7 +139,7 @@ expectedScheme uri = uriScheme uri == "nats:" || uriScheme uri == "tls:"
 -- >
 -- > main :: IO ()
 -- > main =
--- >    withNats defaultManagerSettings ["nats://localhost"] $ \nats -> do
+-- >    withNats defaultSettings ["nats://localhost"] $ \nats -> do
 -- >
 -- >        -- Subscribe to the topic "foo".
 -- >        (s, q) <- subscribe nats "foo" Nothing
@@ -172,7 +172,7 @@ expectedScheme uri = uriScheme uri == "nats:" || uriScheme uri == "tls:"
 -- >
 -- > main :: IO ()
 -- > main =
--- >    withNats defaultManagerSettings ["nats://localhost"] $ \nats -> do
+-- >    withNats defaultSettings ["nats://localhost"] $ \nats -> do
 -- >       
 -- >        -- A simple - asynchronous - help service that will answer
 -- >        -- requesters that give a reply topic with "I can help".
@@ -215,7 +215,7 @@ expectedScheme uri = uriScheme uri == "nats:" || uriScheme uri == "tls:"
 -- >
 -- > main :: IO ()
 -- > main =
--- >    withNats defaultManagerSettings ["nats://localhost"] $ \nats -> do
+-- >    withNats defaultSettings ["nats://localhost"] $ \nats -> do
 -- > 
 -- >        -- A simple - asynchronous - help service that will answer
 -- >        -- requesters that give a reply topic with "I can help".
@@ -249,7 +249,7 @@ expectedScheme uri = uriScheme uri == "nats:" || uriScheme uri == "tls:"
 -- >
 -- > main :: IO ()
 -- > main =
--- >    withNats defaultManagerSettings ["nats://localhost"] $ \nats -> do
+-- >    withNats defaultSettings ["nats://localhost"] $ \nats -> do
 -- > 
 -- >        -- "*" matches any token, at any level of the subject.
 -- >        (_, queue1) <- subscribe nats "foo.*.baz" Nothing

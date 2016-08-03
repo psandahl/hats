@@ -37,7 +37,7 @@ main =
 -- | Simple messaging.
 syncSub :: IO ()
 syncSub =
-    withNats defaultManagerSettings ["nats://localhost"] $ \nats -> do
+    withNats defaultSettings ["nats://localhost"] $ \nats -> do
 
         -- Subscribe to the topic "foo".
         (s, q) <- subscribe nats "foo" Nothing
@@ -56,7 +56,7 @@ syncSub =
 -- asynchronous.
 asyncSub :: IO ()
 asyncSub =
-    withNats defaultManagerSettings ["nats://localhost"] $ \nats -> do
+    withNats defaultSettings ["nats://localhost"] $ \nats -> do
        
         -- A simple - asynchronous - help service that will answer
         -- requesters that give a reply topic with "I can help".
@@ -82,7 +82,7 @@ asyncSub =
 -- | As 'asyncSub', but using the 'request' function to simplify.
 asyncReq :: IO ()
 asyncReq =
-    withNats defaultManagerSettings ["nats://localhost"] $ \nats -> do
+    withNats defaultSettings ["nats://localhost"] $ \nats -> do
        
         -- A simple - asynchronous - help service that will answer
         -- requesters that give a reply topic with "I can help".
@@ -102,7 +102,7 @@ asyncReq =
 -- NATS.
 topic' :: IO ()
 topic' =
-    withNats defaultManagerSettings ["nats://localhost"] $ \nats -> do
+    withNats defaultSettings ["nats://localhost"] $ \nats -> do
 
         -- "*" matches any token, at any level of the subject.
         (_, queue1) <- subscribe nats "foo.*.baz" Nothing
@@ -128,7 +128,7 @@ topic' =
 -- will answer each request.
 queueGroup :: IO ()
 queueGroup =
-    withNats defaultManagerSettings ["nats://localhost"] $ \nats -> do
+    withNats defaultSettings ["nats://localhost"] $ \nats -> do
 
         -- Install a couple of message echo workers. All sharing the
         -- same queue group.

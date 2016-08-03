@@ -22,7 +22,7 @@ import Text.Printf
 
 main :: IO ()
 main =
-    withNats defaultManagerSettings ["nats://localhost"] $ \nats -> do
+    withNats defaultSettings ["nats://localhost"] $ \nats -> do
 
        -- Subscribe to the topic "foo".
        (s, q) <- subscribe nats "foo" Nothing
@@ -55,7 +55,7 @@ import Text.Printf
 
 main :: IO ()
 main =
-    withNats defaultManagerSettings ["nats://localhost"] $ \nats -> do
+    withNats defaultSettings ["nats://localhost"] $ \nats -> do
        
         -- A simple - asynchronous - help service that will answer
         -- requesters that give a reply topic with "I can help".
