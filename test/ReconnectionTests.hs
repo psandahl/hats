@@ -2,6 +2,8 @@
 module ReconnectionTests
     ( subscribeAndReconnect
     , connectionGiveUp
+    , authorizationFail
+    , authorizationSuccess
     ) where
 
 import Control.Concurrent
@@ -81,6 +83,29 @@ connectionGiveUp =
             threadDelay oneSec
 
         assertFailure "Shall never come here!"
+
+-- | Try to connect a server to which the test don't have the
+-- credentials. Shall get a AuthorizationException.
+authorizationFail :: Assertion
+authorizationFail = withGnatsdUP authorizationFail'
+
+authorizationFail' :: Assertion
+authorizationFail' =
+    (\AuthorizationException -> return ()) `handle` do
+        withNats defaultManagerSettings [defaultURI] $ \_ ->
+            threadDelay oneSec
+
+        assertFailure "Shall never come here!"
+
+-- | Connect to a server with credentials. Shall work, no
+-- exceptions thrown.
+authorizationSuccess :: Assertion
+authorizationSuccess = withGnatsdUP authorizationSuccess'
+
+authorizationSuccess' :: Assertion
+authorizationSuccess' =
+    withNats defaultManagerSettings [userPasswordURI] $ \_ ->
+        threadDelay oneSec
 
 oneSec :: Int
 oneSec = 1000000
