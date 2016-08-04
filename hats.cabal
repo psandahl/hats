@@ -1,6 +1,6 @@
 name:                hats
 version:             0.1.0.0
-synopsis:            A Haskell client for the NATS messaging system
+synopsis:            Haskell client for the NATS messaging system
 description:
     A Haskell client for the NATS messaging system. To get started,
     see the documentation for the "Network.Nats" module. Or see the
@@ -51,6 +51,7 @@ library
                      , random
                      , stm
                      , text
+                     , transformers
                      , unordered-containers
   ghc-options:         -Wall
   default-language:    Haskell2010
