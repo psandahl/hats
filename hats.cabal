@@ -18,7 +18,8 @@ stability:           experimental
 tested-with:         GHC == 7.10.3, GHC == 8.0.1
 category:            Network
 build-type:          Simple
--- extra-source-files:
+extra-source-files:  README.md
+                     CHANGES.md
 cabal-version:       >=1.10
 
 library
