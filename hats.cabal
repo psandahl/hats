@@ -1,5 +1,5 @@
 name:                hats
-version:             0.1.0.0
+version:             0.1.0.1
 synopsis:            Haskell client for the NATS messaging system
 description:
     A Haskell client for the NATS messaging system. To get started,

@@ -61,10 +61,10 @@ data Connection = Connection
 -- | Make a new 'Connection' as specified by the URI. Provide one
 -- 'Upstream' queue with data from the application to the server, and
 -- one 'Downstream' queue with data from the server to the application.
-makeConnection :: Tmo -> URI -> Upstream -> Downstream -> SubscriberMap 
+makeConnection :: Tmo -> URI -> Upstream -> Downstream -> SubscriberMap
                -> IO (Maybe Connection)
 makeConnection tmo uri fromApp toApp subscriberMap =
-    connectionError `handle` (Just <$> makeConnection' tmo uri fromApp 
+    connectionError `handle` (Just <$> makeConnection' tmo uri fromApp
                                                        toApp subscriberMap)
     where
       connectionError :: SomeException -> IO (Maybe Connection)
@@ -75,7 +75,7 @@ makeConnection tmo uri fromApp toApp subscriberMap =
             case fromException e of
                 (Just HandshakeException) -> return Nothing
                 _                         -> throwIO e
-            
+
 makeConnection' :: Tmo -> URI -> Upstream -> Downstream -> SubscriberMap
                 -> IO Connection
 makeConnection' tmo uri fromApp toApp subscriberMap = do
@@ -169,7 +169,7 @@ portFromUri = fromIntegral . extractPort . uriPort . fromJust . uriAuthority
 
 -- | Extract credentials (if any) from the 'URI'.
 credentialsFromUri :: URI -> (Maybe BS.ByteString, Maybe BS.ByteString)
-credentialsFromUri = 
+credentialsFromUri =
     toBS . extractCredentials . uriUserInfo. fromJust . uriAuthority
     where
       toBS (user, pass) = (BS.pack <$> user, BS.pack <$> pass)
@@ -177,7 +177,7 @@ credentialsFromUri =
 -- | Resolve a 'HostName' and a 'PortNumber' to a 'SockAddr'.
 toSockAddr :: HostName -> PortNumber -> IO SockAddr
 toSockAddr host port =
-    addrAddress . head <$> getAddrInfo (Just defaultHints) 
+    addrAddress . head <$> getAddrInfo (Just defaultHints)
                                        (Just host)
                                        (Just $ show port)
 
@@ -205,7 +205,7 @@ extractCredentials str =
 -- | Awkward, but this is how to check for connection refuse.
 isConnectionRefused :: SomeException -> Bool
 isConnectionRefused e =
-    show e == "connect: does not exist (Connection refused)"
+    "connect: does not exist (Connection refused)" `isInfixOf` show e
 
 -- | Equally awkward, but this is how to check for resolv errors.
 isResolvError :: SomeException -> Bool

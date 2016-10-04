@@ -23,7 +23,7 @@ publishJson :: ToJSON a => Nats -> Topic -> Maybe Topic -> a -> IO ()
 publishJson nats topic replyTo = publish nats topic replyTo . encode
 {-# INLINE publishJson #-}
 
--- | As 'request', but with JSON payload and 'JsonMsg' reply.
+-- | As 'request', but with JSON payload.
 requestJson :: ToJSON a => Nats -> Topic -> a -> IO Msg
 requestJson nats topic = request nats topic . encode
 {-# INLINE requestJson #-}
